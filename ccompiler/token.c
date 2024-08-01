@@ -15,6 +15,11 @@ struct tokenPipe TokenPipeNew() {
 }
 
 
+bool tokenPipeIsEmpty(struct tokenPipe* pipe) {
+    return pipe->nAvailable > 0;
+}
+
+
 void tokenPipePush(struct tokenPipe* pipe, struct token tok) {
     if (pipe->nAvailable + pipe->nDelivered >= pipe->cap) {
         pipe->cap += 1000;
@@ -63,6 +68,12 @@ void StringAppend(struct string* str, char c) {
 }
 
 
+char StringGet(struct string str, int index) {
+    if (index >= str.len) Error("index out of bounds when reading string");
+    return str.ptr[index];
+}
+
+
 struct stringStack StringStackNew() {
     struct stringStack ss;
     ss.nStrings = 0;
@@ -98,20 +109,29 @@ struct tokenContext TokenContextNew(char* fileName) {
     tc.fp = fopen(fileName, "r");
     CheckPtr(tc.fileName);
 
-    tc.tokenPipe = TokenPipeNew();
+    tc.tokens = TokenPipeNew();
     tc.lines = StringStackNew();
     return tc;
 }
 
 
-struct string ReadLine(FILE* fp) {
-    struct string str = StringNew();
-
+void ParseComment(struct tokenContext* tc, struct token* tok, int* colStart) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
     char c;
-    while((c = fgetc(fp)) != '\n') {
-        StringAppend(&str, c);
+    while((c = StringGet(line, *colStart)) != '\n') {
+        StringAppend(&(tok->str), c);
+        (*colStart)++;
     }
-    return str;
+}
+
+
+void ParseTokenSwitch(struct tokenContext* tc, struct token* tok, int* colStart) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    char c = line.ptr[*colStart];
+    switch (c) {
+        case '#': tok->type = TOKEN_COMMENT; ParseComment(tc, tok, colStart); break;
+        default: SyntaxErrorInvalidChar(tc, c, tc->lines.nStrings -1, *colStart, NULL);
+    }
 }
 
 
@@ -119,17 +139,6 @@ int FindNonSpaceNonTab(struct string str, int colStart) {
     int i = colStart;
     while(str.ptr[i] == '\n' || str.ptr[i] == '\t') i++;
     return i;
-}
-
-
-void ParseTokenSwitch(struct tokenContext* tc, struct token* tok, int* colStart) {
-    char c;
-    switch (c = fgetc(tc->fp)) {
-        (void)colStart;
-        (void)tc;
-        (void)tok;
-        //TODO
-    }
 }
 
 
@@ -148,8 +157,41 @@ struct token ParseToken(struct tokenContext* tc, int* colStart) {
 }
 
 
+struct string ReadLine(FILE* fp) {
+    struct string str = StringNew();
+
+    char c;
+    while((c = fgetc(fp)) != '\n') {
+        StringAppend(&str, c);
+    }
+    return str;
+}
+
+
 void ParseLine(struct tokenContext* tc) {
     struct string str = ReadLine(tc->fp);
     StringStackPush(&(tc->lines), str);
-    //TODO
+
+    int colStart = 0;
+    while(colStart < str.len) {
+        tokenPipePush(&(tc->tokens), ParseToken(tc, &colStart));
+    }
+}
+
+
+struct token TokenNext(struct tokenContext* tc) {
+    if (tokenPipeIsEmpty(&(tc->tokens))) {
+        ParseLine(tc);
+    }
+
+    struct token tok = tokenPipePop(&(tc->tokens));
+    if (tok.type == TOKEN_EOF) tokenPipePush(&(tc->tokens), tok);
+    return tok;
+}
+
+
+struct token TokenNextDiscardNewlines(struct tokenContext* tc) {
+    struct token tok;
+    while((tok = TokenNext(tc)).type == TOKEN_NEWLINE);
+    return tok;
 }

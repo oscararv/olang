@@ -3,6 +3,8 @@
 
 
 enum tokenType {
+    TOKEN_EOF,
+    TOKEN_COMMENT,
     TOKEN_NEWLINE,
     TOKEN_IDENTIFIER,
     TOKEN_INT,
@@ -31,6 +33,7 @@ struct stringStack {
 
 
 struct token {
+    enum tokenType type;
     int line;
     int colStart;
     int colEnd;
@@ -50,9 +53,13 @@ struct tokenPipe {
 struct tokenContext {
     char* fileName;
     FILE* fp;
-    struct tokenPipe tokenPipe;
+    struct tokenPipe tokens;
     struct stringStack lines;
 };
+
+
+struct token TokenNext(struct tokenContext* tc);
+struct token TokenNextDiscardNewlines(struct tokenContext* tc);
 
 
 #endif //TOKEN_H
