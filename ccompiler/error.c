@@ -40,7 +40,7 @@ static void PrintCharIgnoreNewline(int c) {
 
 
 static void SyntaxErrorLine(struct string line, int colStart, int colEnd) {
-    fputs(COLOR_GREEN "-> " COLOR_RESET, stdout);
+    fputs(COLOR_GREEN "-> " COLOR_BRIGHT_BLACK, stdout);
     for (int i = 0; i < colStart; i++) {
         PrintCharIgnoreNewline(StringGet(line, i));
     }
@@ -50,11 +50,11 @@ static void SyntaxErrorLine(struct string line, int colStart, int colEnd) {
         PrintChar(StringGet(line, i));
     }
 
-    fputs(COLOR_RESET, stdout);
+    fputs(COLOR_BRIGHT_BLACK, stdout);
     for (int i = colEnd +1; i < line.len; i++) {
         PrintCharIgnoreNewline(StringGet(line, i));
     }
-    puts("");
+    puts(COLOR_RESET);
 }
 
 

@@ -159,6 +159,126 @@ void ParseStringConstant(struct tokenContext* tc, int* col) {
 }
 
 
+enum tokenType ParseEqualSign(struct tokenContext* tc, int* col) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    if (StringGet(line, *col) == '=') {
+        (*col)++;
+        return TOKEN_LOGICAL_EQUALS;
+    }
+    return TOKEN_ASSIGNMENT;
+}
+
+
+enum tokenType ParseAmpersand(struct tokenContext* tc, int* col) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    if (StringGet(line, *col) == '&') {
+        (*col)++;
+        return TOKEN_LOGICAL_AND;
+    }
+    return TOKEN_BITWISE_AND;
+}
+
+
+enum tokenType ParsePipe(struct tokenContext* tc, int* col) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    if (StringGet(line, *col) == '|') {
+        (*col)++;
+        return TOKEN_LOGICAL_OR;
+    }
+    return TOKEN_BITWISE_OR;
+}
+
+
+enum tokenType ParseLessThan(struct tokenContext* tc, int* col) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    char c = StringGet(line, *col);
+    if (c == '<') {
+        (*col)++;
+        return TOKEN_BITSHIFT_LEFT;
+    }
+    if (c == '=') {
+        (*col)++;
+        return TOKEN_LOGICAL_LESS_THAN_OR_EQUAL;
+    }
+    return TOKEN_LOGICAL_LESS_THAN;
+}
+
+
+enum tokenType ParseGreaterThan(struct tokenContext* tc, int* col) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    char c = StringGet(line, *col);
+    if (c == '>') {
+        (*col)++;
+        return TOKEN_BITSHIFT_RIGHT;
+    }
+    if (c == '=') {
+        (*col)++;
+        return TOKEN_LOGICAL_GREATER_THAN_OR_EQUAL;
+    }
+    return TOKEN_LOGICAL_GREATER_THAN;
+}
+
+
+enum tokenType ParsePlusSign(struct tokenContext* tc, int* col) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    char c = StringGet(line, *col);
+    if (c == '+') {
+        (*col)++;
+        return TOKEN_INCREMENT;
+    }
+    if (c == '=') {
+        (*col)++;
+        return TOKEN_ASSIGNMENT_ADD;
+    }
+    return TOKEN_ADD;
+}
+
+
+enum tokenType ParseHyphen(struct tokenContext* tc, int* col) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    char c = StringGet(line, *col);
+    if (c == '-') {
+        (*col)++;
+        return TOKEN_DECREMENT;
+    }
+    if (c == '=') {
+        (*col)++;
+        return TOKEN_ASSIGNMENT_SUB;
+    }
+    return TOKEN_SUB;
+}
+
+
+enum tokenType ParseAsterisk(struct tokenContext* tc, int* col) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    if (StringGet(line, *col) == '=') {
+        (*col)++;
+        return TOKEN_ASSIGNMENT_MUL;
+    }
+    return TOKEN_MUL;
+}
+
+
+enum tokenType ParseForwardSlash(struct tokenContext* tc, int* col) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    if (StringGet(line, *col) == '=') {
+        (*col)++;
+        return TOKEN_ASSIGNMENT_DIV;
+    }
+    return TOKEN_DIV;
+}
+
+
+enum tokenType ParsePercentSign(struct tokenContext* tc, int* col) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    if (StringGet(line, *col) == '=') {
+        (*col)++;
+        return TOKEN_ASSIGNMENT_MODULO;
+    }
+    return TOKEN_MODULO;
+}
+
+
 void ParseTokenSwitch(struct tokenContext* tc, struct token* tok, int* col) {
     struct string line = tc->lines.strings[tc->lines.nStrings -1];
     char c = line.ptr[*col];
@@ -174,6 +294,28 @@ void ParseTokenSwitch(struct tokenContext* tc, struct token* tok, int* col) {
         case '\n': tok->type = TOKEN_NEWLINE; break;
         case '\'': tok->type = TOKEN_CHAR; ParseCharConstant(tc, col); break;
         case '"': tok->type = TOKEN_STRING; ParseStringConstant(tc, col); break;
+        case '=': tok->type = ParseEqualSign(tc, col); break;
+        case '&': tok->type = ParseAmpersand(tc, col); break;
+        case '|': tok->type = ParsePipe(tc, col); break;
+        case '<': tok->type = ParseLessThan(tc, col); break;
+        case '>': tok->type = ParseGreaterThan(tc, col); break;
+        case '+': tok->type = ParsePlusSign(tc, col); break;
+        case '-': tok->type = ParseHyphen(tc, col); break;
+        case '*': tok->type = ParseAsterisk(tc, col); break;
+        case '/': tok->type = ParseForwardSlash(tc, col); break;
+        case '%': tok->type = ParsePercentSign(tc, col); break;
+
+        case '.': tok->type = TOKEN_DOT; break;
+        case ',': tok->type = TOKEN_COMMA; break;
+        case '(': tok->type = TOKEN_PAREN_OPEN; break;
+        case ')': tok->type = TOKEN_PAREN_CLOSE; break;
+        case '[': tok->type = TOKEN_SQUAREBRACKET_OPEN; break;
+        case ']': tok->type = TOKEN_SQUAREBRACKET_CLOSE; break;
+        case '{': tok->type = TOKEN_CURLYBRACKET_OPEN; break;
+        case '}': tok->type = TOKEN_CURLYBRACKET_CLOSE; break;
+        case '!': tok->type = TOKEN_LOGICAL_NOT; break;
+        case '^': tok->type = TOKEN_BITWISE_XOR; break;
+        case '~': tok->type = TOKEN_BITWISE_COMPLEMENT; break;
         default: SyntaxErrorInvalidChar(tc, *col-1, NULL); break;
     }
 }
@@ -231,7 +373,10 @@ struct string ReadLine(FILE* fp, bool* eof) {
 
     while(true) {
         int c = fgetc(fp);
-        if (c == EOF) {*eof = true; break;}
+        if (c == EOF) {
+            *eof = true;
+            c = '\n';
+        }
         StringAppend(&str, (char)c);
         if (c == '\n') break;
     }
@@ -271,7 +416,7 @@ void ParseLine(struct tokenContext* tc) {
     ValidateLatestLine(tc);
 
     int col= 0;
-    while(col< line.len) {
+    while(col < StringGetLen(line)) {
         tokenPipePush(&(tc->tokens), ParseToken(tc, &col));
     }
     if (eof) {
