@@ -1,1 +1,4 @@
 #this is a comment
+if then
+"this is a string'"
+'\''

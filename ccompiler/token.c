@@ -2,8 +2,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
-#include "error.h"
 #include "token.h"
+#include "error.h"
+#include "str.h"
 
 
 struct tokenPipe TokenPipeNew() {
@@ -16,7 +17,7 @@ struct tokenPipe TokenPipeNew() {
 
 
 bool tokenPipeIsEmpty(struct tokenPipe* pipe) {
-    return pipe->nAvailable > 0;
+    return pipe->nAvailable <= 0;
 }
 
 
@@ -47,60 +48,6 @@ void tokenPipeUnpop(struct tokenPipe* pipe, struct token tok) {
 }
 
 
-struct string StringNew() {
-    struct string str;
-    str.len = 0;
-    str.cap = 0;
-    str.ptr = NULL;
-    return str;
-}
-
-
-void StringAppend(struct string* str, char c) {
-    if (str->len >= str->cap) {
-        str->cap += 100;
-        str->ptr = realloc(str->ptr, sizeof(char) * str->cap);
-        CheckPtr(str->ptr);
-    }
-
-    str->ptr[str->len] = c;
-    str->len++;
-}
-
-
-char StringGet(struct string str, int index) {
-    if (index >= str.len) Error("index out of bounds when reading string");
-    return str.ptr[index];
-}
-
-
-struct stringStack StringStackNew() {
-    struct stringStack ss;
-    ss.nStrings = 0;
-    ss.cap = 0;
-    ss.strings = NULL;
-    return ss;
-}
-
-
-void StringStackPush(struct stringStack* ss, struct string str) {
-    if (ss->nStrings >= ss->cap) {
-        ss->cap += 100;
-        ss->strings = realloc(ss->strings, sizeof(struct string));
-        CheckPtr(ss->strings);
-    }
-
-    ss->strings[ss->nStrings] = str;
-    ss->nStrings++;
-}
-
-
-struct string StringStackPeek(struct stringStack* ss, int index) {
-    if (index >= ss->nStrings) Error("tried to peek into string stack at invalid index");
-    return ss->strings[index];
-}
-
-
 struct tokenContext TokenContextNew(char* fileName) {
     struct tokenContext tc;
     tc.fileName = strdup(fileName);
@@ -115,66 +62,220 @@ struct tokenContext TokenContextNew(char* fileName) {
 }
 
 
-void ParseComment(struct tokenContext* tc, struct token* tok, int* colStart) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
-    char c;
-    while((c = StringGet(line, *colStart)) != '\n') {
-        StringAppend(&(tok->str), c);
-        (*colStart)++;
-    }
-}
-
-
-void ParseTokenSwitch(struct tokenContext* tc, struct token* tok, int* colStart) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
-    char c = line.ptr[*colStart];
-    switch (c) {
-        case '#': tok->type = TOKEN_COMMENT; ParseComment(tc, tok, colStart); break;
-        default: SyntaxErrorInvalidChar(tc, c, tc->lines.nStrings -1, *colStart, NULL);
-    }
-}
-
-
-int FindNonSpaceNonTab(struct string str, int colStart) {
-    int i = colStart;
-    while(str.ptr[i] == '\n' || str.ptr[i] == '\t') i++;
+int FindNonSpaceNonTab(struct string str, int col) {
+    int i = col;
+    while(str.ptr[i] == ' ' || str.ptr[i] == '\t') i++;
     return i;
 }
 
 
-struct token ParseToken(struct tokenContext* tc, int* colStart) {
+bool IsDigit(char c) {
+    if (c >= '0' && c <= '9') return true;
+    return false;
+}
+
+
+bool IsIdentifier(char c) {
+    if (IsDigit(c)) return true;
+    if (c >= 'A' && c <= 'Z') return true;
+    if (c >= 'a' && c <= 'z') return true;
+    if (c == '_') return true;
+    return false;
+}
+
+
+void ParseComment(struct tokenContext* tc, int* col) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    char c;
+    while ((c = StringGet(line, *col)) != '\n') (*col)++;
+}
+
+
+void ParseIdentifier(struct tokenContext* tc, int* col) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    while (IsIdentifier(StringGet(line, *col))) (*col)++;
+}
+
+
+enum tokenType ParseNumber(struct tokenContext* tc, int* col) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    int nDots = 0;
+    while (IsDigit(StringGet(line, *col)) || StringGet(line, *col) == '.') {
+        if (StringGet(line, *col) == '.') {
+            nDots++;
+            if (nDots > 1) SyntaxErrorInvalidChar(tc, *col,
+                        "numbers may not contain more than one decimal point");
+        }
+        (*col)++;
+    }
+    if (StringGet(line, *col-1) == '.') SyntaxErrorInvalidChar(tc,
+            *col, "numbers may not end in a decimal point");
+
+    if (nDots == 0) return TOKEN_INT;
+    else return TOKEN_FLOAT;
+}
+
+
+static bool IsEscapeChar(char c, bool string) {
+    if (c == 'n') return true;
+    if (c == 't') return true;
+    if (c == '\\') return true;
+    if (c == '"' && string) return true;
+    if (c == '\'' && !string) return true;
+    return false;
+}
+
+
+static void ParseChar(struct tokenContext* tc, int* col, bool inString) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    char c = StringGet(line, *col);
+    if (c == '\n') SyntaxErrorInvalidChar(tc, *col, NULL);
+    if (c == '\\') {
+        (*col)++;
+        if (!IsEscapeChar(StringGet(line, *col), inString)) {
+            SyntaxErrorInvalidChar(tc, *col, "invalid escape character");
+        }
+    }
+    (*col)++;
+}
+
+
+void ParseCharConstant(struct tokenContext* tc, int* col) {
+    ParseChar(tc, col, false);
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    if (StringGet(line, *col) != '\'') SyntaxErrorInvalidChar(tc, *col,
+            "character constants may only contain one character");
+    (*col)++;
+}
+
+
+void ParseStringConstant(struct tokenContext* tc, int* col) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    char c;
+    while ((c = StringGet(line, *col)) != '"') {
+        ParseChar(tc, col, true);
+    }
+    (*col)++;
+}
+
+
+void ParseTokenSwitch(struct tokenContext* tc, struct token* tok, int* col) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    char c = line.ptr[*col];
+    (*col)++;
+
+    if (IsDigit(c)) tok->type = ParseNumber(tc, col);
+    else if (IsIdentifier(c)) {
+        tok->type = TOKEN_IDENTIFIER;
+        ParseIdentifier(tc, col);
+    }
+    else switch (c) {
+        case '#': tok->type = TOKEN_COMMENT; ParseComment(tc, col); break;
+        case '\n': tok->type = TOKEN_NEWLINE; break;
+        case '\'': tok->type = TOKEN_CHAR; ParseCharConstant(tc, col); break;
+        case '"': tok->type = TOKEN_STRING; ParseStringConstant(tc, col); break;
+        default: SyntaxErrorInvalidChar(tc, *col-1, NULL); break;
+    }
+}
+
+
+static void SpecifyIdentifier(struct token* tok) {
+    if (strncmp(StringGetPtr(tok->str), "import", StringGetLen(tok->str))) tok->type = TOKEN_IMPORT;
+    if (strncmp(StringGetPtr(tok->str), "type", StringGetLen(tok->str))) tok->type = TOKEN_TYPE;
+    if (strncmp(StringGetPtr(tok->str), "if", StringGetLen(tok->str))) tok->type = TOKEN_IF;
+    if (strncmp(StringGetPtr(tok->str), "else", StringGetLen(tok->str))) tok->type = TOKEN_ELSE;
+    if (strncmp(StringGetPtr(tok->str), "for", StringGetLen(tok->str))) tok->type = TOKEN_FOR;
+    if (strncmp(StringGetPtr(tok->str), "defer", StringGetLen(tok->str))) tok->type = TOKEN_DEFER;
+    if (strncmp(StringGetPtr(tok->str), "switch", StringGetLen(tok->str))) tok->type = TOKEN_SWITCH;
+    if (strncmp(StringGetPtr(tok->str), "return", StringGetLen(tok->str))) tok->type = TOKEN_RETURN;
+    if (strncmp(StringGetPtr(tok->str), "break", StringGetLen(tok->str))) tok->type = TOKEN_BREAK;
+    if (strncmp(StringGetPtr(tok->str), "match", StringGetLen(tok->str))) tok->type = TOKEN_MATCH;
+    if (strncmp(StringGetPtr(tok->str), "case", StringGetLen(tok->str))) tok->type = TOKEN_CASE;
+    if (strncmp(StringGetPtr(tok->str), "bool", StringGetLen(tok->str))) tok->type = TOKEN_BOOL;
+    if (strncmp(StringGetPtr(tok->str), "byte", StringGetLen(tok->str))) tok->type = TOKEN_BYTE;
+    if (strncmp(StringGetPtr(tok->str), "int8", StringGetLen(tok->str))) tok->type = TOKEN_INT8;
+    if (strncmp(StringGetPtr(tok->str), "int16", StringGetLen(tok->str))) tok->type = TOKEN_INT16;
+    if (strncmp(StringGetPtr(tok->str), "int32", StringGetLen(tok->str))) tok->type = TOKEN_INT32;
+    if (strncmp(StringGetPtr(tok->str), "int64", StringGetLen(tok->str))) tok->type = TOKEN_INT64;
+    if (strncmp(StringGetPtr(tok->str), "uint8", StringGetLen(tok->str))) tok->type = TOKEN_UINT8;
+    if (strncmp(StringGetPtr(tok->str), "uint16", StringGetLen(tok->str))) tok->type = TOKEN_UINT16;
+    if (strncmp(StringGetPtr(tok->str), "uint32", StringGetLen(tok->str))) tok->type = TOKEN_UINT32;
+    if (strncmp(StringGetPtr(tok->str), "uint64", StringGetLen(tok->str))) tok->type = TOKEN_UINT64;
+    if (strncmp(StringGetPtr(tok->str), "float32", StringGetLen(tok->str))) tok->type = TOKEN_FLOAT32;
+    if (strncmp(StringGetPtr(tok->str), "float64", StringGetLen(tok->str))) tok->type = TOKEN_FLOAT64;
+    if (strncmp(StringGetPtr(tok->str), "struct", StringGetLen(tok->str))) tok->type = TOKEN_STRUCT;
+    if (strncmp(StringGetPtr(tok->str), "vocab", StringGetLen(tok->str))) tok->type = TOKEN_VOCAB;
+    if (strncmp(StringGetPtr(tok->str), "func", StringGetLen(tok->str))) tok->type = TOKEN_FUNC;
+}
+
+
+struct token ParseToken(struct tokenContext* tc, int* col) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    *col= FindNonSpaceNonTab(line, *col);
+
     struct token tok;
-    tok.line = tc->lines.nStrings;
-    tok.str = StringNew();
+    tok.lineNr = tc->lines.nStrings;
+    tok.str = StringSlice(&line, *col, *col);
     tok.context = tc;
 
-    *colStart = FindNonSpaceNonTab(tc->lines.strings[tc->lines.nStrings -1], *colStart);
-    tok.colStart = *colStart;
+    ParseTokenSwitch(tc, &tok, col);
+    StringSetLen(&(tok.str), *col);
 
-    ParseTokenSwitch(tc, &tok, colStart);
-    tok.colEnd = *colStart -1;
+    if (tok.type == TOKEN_IDENTIFIER) SpecifyIdentifier(&tok);
     return tok;
 }
 
 
-struct string ReadLine(FILE* fp) {
+struct string ReadLine(FILE* fp, bool* eof) {
     struct string str = StringNew();
 
-    char c;
-    while((c = fgetc(fp)) != '\n') {
-        StringAppend(&str, c);
+    while(true) {
+        int c = fgetc(fp);
+        if (c == EOF) {*eof = true; break;}
+        StringAppend(&str, (char)c);
+        if (c == '\n') break;
     }
     return str;
 }
 
 
-void ParseLine(struct tokenContext* tc) {
-    struct string str = ReadLine(tc->fp);
-    StringStackPush(&(tc->lines), str);
+struct token TokenEOF(struct tokenContext* tc) {
+    struct token tok;
+    tok.type = TOKEN_EOF;
+    tok.lineNr = tc->lines.nStrings;
+    tok.str = StringNew();
+    tok.context = tc;
+    return tok;
+}
 
-    int colStart = 0;
-    while(colStart < str.len) {
-        tokenPipePush(&(tc->tokens), ParseToken(tc, &colStart));
+
+bool IsValidChar(char c) {
+    if (c < ' ') return false;
+    if (c == 127) return false;
+    return true;
+}
+
+
+void ValidateLatestLine(struct tokenContext* tc) {
+    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    for (int i = 0; i < line.len -1; i++) {
+        if (!IsValidChar(StringGet(line, i))) SyntaxErrorInvalidChar(tc, i, NULL);
+    }
+}
+
+
+void ParseLine(struct tokenContext* tc) {
+    bool eof = false;
+    struct string line = ReadLine(tc->fp, &eof);
+    StringStackPush(&(tc->lines), line);
+    ValidateLatestLine(tc);
+
+    int col= 0;
+    while(col< line.len) {
+        tokenPipePush(&(tc->tokens), ParseToken(tc, &col));
+    }
+    if (eof) {
+        tokenPipePush(&(tc->tokens), TokenEOF(tc));
     }
 }
 
