@@ -1,33 +1,34 @@
 #ifndef STR_H
 #define STR_H
+#include <stdbool.h>
 
 
-//fields should NOT be accessed directly
-struct string {
+//use helper functions to access
+struct str {
+    bool isSlice;
     int len;
     int cap;
     char* ptr;
 };
 
 
-//fields should NOT be accessed directly
-struct stringStack {
-    int nStrings;
+//use helper functions to access
+struct strStack {
+    int nStrs;
     int cap;
-    struct string* strings;
+    struct str* strs;
 };
 
 
-struct string StringNew();
-struct string StringSlice(struct string* orig, int start, int len);
-void StringAppend(struct string* str, char c);
-void StringSetLen(struct string* str, int len);
-char StringGetLen(struct string str);
-char StringGet(struct string str, int index);
-char* StringGetPtr(struct string str);
-struct stringStack StringStackNew();
-void StringStackPush(struct stringStack* ss, struct string str);
-struct string StringStackPeek(struct stringStack* ss, int index);
-
+struct str StrNew();
+struct str StrSlice(struct str orig, int start, int len);
+void StrAppend(struct str* str, char c);
+void StrSetLen(struct str* str, int len);
+int StrGetLen(struct str str);
+char StrGetChar(struct str str, int index);
+char* StrGetPtr(struct str str);
+struct strStack StrStackNew();
+void StrStackPush(struct strStack* ss, struct str str);
+struct str StrStackPeek(struct strStack* ss, int index);
 
 #endif //STR_H

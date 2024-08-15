@@ -79,7 +79,7 @@ enum tokenType {
 struct token {
     enum tokenType type;
     int lineNr;
-    struct string str;
+    struct str str;
     struct tokenContext* context;
 };
 
@@ -96,7 +96,7 @@ struct tokenContext {
     char* fileName;
     FILE* fp;
     struct tokenPipe tokens;
-    struct stringStack lines;
+    struct strStack lines;
 };
 
 

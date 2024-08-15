@@ -4,8 +4,9 @@
 #include "str.h"
 
 
-struct string StringNew() {
-    struct string str;
+struct str StrNew() {
+    struct str str;
+    str.isSlice = false;
     str.len = 0;
     str.cap = 0;
     str.ptr = NULL;
@@ -13,22 +14,24 @@ struct string StringNew() {
 }
 
 
-struct string StringSlice(struct string* orig, int start, int len) {
-    if (len > orig->len) Error("string slice len is longer than original len");
-    struct string str;
+struct str StrSlice(struct str orig, int start, int len) {
+    if (len > orig.len) Error("string slice len is greater than original len");
+    struct str str;
+    str.isSlice = true;
     str.len = len - start;
-    str.cap = orig->cap - start;
-    str.ptr = orig->ptr + start;
+    str.cap = str.len;
+    str.ptr = orig.ptr + start;
     return str;
 }
 
 
-void StringSetLen(struct string* str, int len) {
+void StrSetLen(struct str* str, int len) {
     str->len = len;
 }
 
 
-void StringAppend(struct string* str, char c) {
+void StrAppend(struct str* str, char c) {
+    if (str->isSlice) Error("string slices may not be appended");
     if (str->len >= str->cap) {
         str->cap += 100;
         str->ptr = realloc(str->ptr, sizeof(char) * str->cap);
@@ -40,45 +43,45 @@ void StringAppend(struct string* str, char c) {
 }
 
 
-char StringGetLen(struct string str) {
+int StrGetLen(struct str str) {
     return str.len;
 }
 
 
-char StringGet(struct string str, int index) {
+char StrGetChar(struct str str, int index) {
     if (index >= str.len) Error("index out of bounds when reading string");
     return str.ptr[index];
 }
 
 
-char* StringGetPtr(struct string str) {
+char* StrGetPtr(struct str str) {
     return str.ptr;
 }
 
 
-struct stringStack StringStackNew() {
-    struct stringStack ss;
-    ss.nStrings = 0;
+struct strStack StrStackNew() {
+    struct strStack ss;
+    ss.nStrs = 0;
     ss.cap = 0;
-    ss.strings = NULL;
+    ss.strs = NULL;
     return ss;
 }
 
 
-void StringStackPush(struct stringStack* ss, struct string str) {
-    if (ss->nStrings >= ss->cap) {
+void StrStackPush(struct strStack* ss, struct str str) {
+    if (ss->nStrs >= ss->cap) {
         ss->cap += 100;
-        ss->strings = realloc(ss->strings, sizeof(struct string));
-        CheckPtr(ss->strings);
+        ss->strs = realloc(ss->strs, sizeof(struct str));
+        CheckPtr(ss->strs);
     }
 
-    ss->strings[ss->nStrings] = str;
-    ss->nStrings++;
+    ss->strs[ss->nStrs] = str;
+    ss->nStrs++;
 }
 
 
-struct string StringStackPeek(struct stringStack* ss, int index) {
-    if (index >= ss->nStrings) Error("tried to peek into string stack at invalid index");
-    return ss->strings[index];
+struct str StrStackPeek(struct strStack* ss, int index) {
+    if (index >= ss->nStrs) Error("tried to peek into string stack at invalid index");
+    return ss->strs[index];
 }
 

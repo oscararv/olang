@@ -39,20 +39,27 @@ static void PrintCharIgnoreNewline(int c) {
 }
 
 
-static void SyntaxErrorLine(struct string line, int colStart, int colEnd) {
+static void PrintStr(struct str str) {
+    for (int i = 0; i < StrGetLen(str); i++) {
+        PrintChar(StrGetChar(str, i));
+    }
+}
+
+
+static void SyntaxErrorLine(struct str line, int colStart, int colEnd) {
     fputs(COLOR_GREEN "-> " COLOR_BRIGHT_BLACK, stdout);
     for (int i = 0; i < colStart; i++) {
-        PrintCharIgnoreNewline(StringGet(line, i));
+        PrintCharIgnoreNewline(StrGetChar(line, i));
     }
 
     fputs(COLOR_RED, stdout);
     for (int i = colStart; i <= colEnd; i++) {
-        PrintChar(StringGet(line, i));
+        PrintChar(StrGetChar(line, i));
     }
 
     fputs(COLOR_BRIGHT_BLACK, stdout);
     for (int i = colEnd +1; i < line.len; i++) {
-        PrintCharIgnoreNewline(StringGet(line, i));
+        PrintCharIgnoreNewline(StrGetChar(line, i));
     }
     puts(COLOR_RESET);
 }
@@ -60,11 +67,11 @@ static void SyntaxErrorLine(struct string line, int colStart, int colEnd) {
 
 //reason may be NULL
 void SyntaxErrorInvalidChar(struct tokenContext* tc, int col, char* reason) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
-    SyntaxErrorBase(tc->lines.nStrings, tc->fileName);
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    SyntaxErrorBase(tc->lines.nStrs, tc->fileName);
     fputs(COLOR_YELLOW, stdout);
     fputs("invalid character \"", stdout);
-    PrintChar(StringGet(line, col));
+    PrintChar(StrGetChar(line, col));
     fputs("\"", stdout);
     if (reason) {
         fputs(" ", stdout);
@@ -72,5 +79,25 @@ void SyntaxErrorInvalidChar(struct tokenContext* tc, int col, char* reason) {
     }
     puts(COLOR_RESET);
     SyntaxErrorLine(line, col, col);
+    exit(EXIT_FAILURE);
+}
+
+
+//reason may be NULL
+void SyntaxErrorInvalidToken(struct token* tok, char* reason) {
+    struct tokenContext* tc = tok->context;
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    SyntaxErrorBase(tc->lines.nStrs, tc->fileName);
+    fputs(COLOR_YELLOW, stdout);
+    fputs("invalid character \"", stdout);
+    PrintStr(line);
+    fputs("\"", stdout);
+    if (reason) {
+        fputs(" ", stdout);
+        fputs(reason, stdout);
+    }
+    puts(COLOR_RESET);
+    SyntaxErrorLine(line, StrGetPtr(tok->str) - StrGetPtr(line),
+            StrGetLen(tok->str));
     exit(EXIT_FAILURE);
 }

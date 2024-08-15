@@ -57,12 +57,12 @@ struct tokenContext TokenContextNew(char* fileName) {
     CheckPtr(tc.fileName);
 
     tc.tokens = TokenPipeNew();
-    tc.lines = StringStackNew();
+    tc.lines = StrStackNew();
     return tc;
 }
 
 
-int FindNonSpaceNonTab(struct string str, int col) {
+int FindNonSpaceNonTab(struct str str, int col) {
     int i = col;
     while(str.ptr[i] == ' ' || str.ptr[i] == '\t') i++;
     return i;
@@ -85,30 +85,30 @@ bool IsIdentifier(char c) {
 
 
 void ParseComment(struct tokenContext* tc, int* col) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
     char c;
-    while ((c = StringGet(line, *col)) != '\n') (*col)++;
+    while ((c = StrGetChar(line, *col)) != '\n') (*col)++;
 }
 
 
 void ParseIdentifier(struct tokenContext* tc, int* col) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
-    while (IsIdentifier(StringGet(line, *col))) (*col)++;
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    while (IsIdentifier(StrGetChar(line, *col))) (*col)++;
 }
 
 
 enum tokenType ParseNumber(struct tokenContext* tc, int* col) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
     int nDots = 0;
-    while (IsDigit(StringGet(line, *col)) || StringGet(line, *col) == '.') {
-        if (StringGet(line, *col) == '.') {
+    while (IsDigit(StrGetChar(line, *col)) || StrGetChar(line, *col) == '.') {
+        if (StrGetChar(line, *col) == '.') {
             nDots++;
             if (nDots > 1) SyntaxErrorInvalidChar(tc, *col,
                         "numbers may not contain more than one decimal point");
         }
         (*col)++;
     }
-    if (StringGet(line, *col-1) == '.') SyntaxErrorInvalidChar(tc,
+    if (StrGetChar(line, *col-1) == '.') SyntaxErrorInvalidChar(tc,
             *col, "numbers may not end in a decimal point");
 
     if (nDots == 0) return TOKEN_INT;
@@ -116,23 +116,23 @@ enum tokenType ParseNumber(struct tokenContext* tc, int* col) {
 }
 
 
-static bool IsEscapeChar(char c, bool string) {
+static bool IsEscapeChar(char c, bool inString) {
     if (c == 'n') return true;
     if (c == 't') return true;
     if (c == '\\') return true;
-    if (c == '"' && string) return true;
-    if (c == '\'' && !string) return true;
+    if (c == '"' && inString) return true;
+    if (c == '\'' && !inString) return true;
     return false;
 }
 
 
-static void ParseChar(struct tokenContext* tc, int* col, bool inString) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
-    char c = StringGet(line, *col);
+static void ParseChar(struct tokenContext* tc, int* col, bool inStr) {
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    char c = StrGetChar(line, *col);
     if (c == '\n') SyntaxErrorInvalidChar(tc, *col, NULL);
     if (c == '\\') {
         (*col)++;
-        if (!IsEscapeChar(StringGet(line, *col), inString)) {
+        if (!IsEscapeChar(StrGetChar(line, *col), inStr)) {
             SyntaxErrorInvalidChar(tc, *col, "invalid escape character");
         }
     }
@@ -141,18 +141,20 @@ static void ParseChar(struct tokenContext* tc, int* col, bool inString) {
 
 
 void ParseCharConstant(struct tokenContext* tc, int* col) {
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    if (StrGetChar(line, *col) == '\'') SyntaxErrorInvalidChar(tc, *col,
+            "character constants may not be empty");
     ParseChar(tc, col, false);
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
-    if (StringGet(line, *col) != '\'') SyntaxErrorInvalidChar(tc, *col,
+    if (StrGetChar(line, *col) != '\'') SyntaxErrorInvalidChar(tc, *col,
             "character constants may only contain one character");
     (*col)++;
 }
 
 
 void ParseStringConstant(struct tokenContext* tc, int* col) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
     char c;
-    while ((c = StringGet(line, *col)) != '"') {
+    while ((c = StrGetChar(line, *col)) != '"') {
         ParseChar(tc, col, true);
     }
     (*col)++;
@@ -160,8 +162,8 @@ void ParseStringConstant(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParseEqualSign(struct tokenContext* tc, int* col) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
-    if (StringGet(line, *col) == '=') {
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    if (StrGetChar(line, *col) == '=') {
         (*col)++;
         return TOKEN_LOGICAL_EQUALS;
     }
@@ -170,8 +172,8 @@ enum tokenType ParseEqualSign(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParseAmpersand(struct tokenContext* tc, int* col) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
-    if (StringGet(line, *col) == '&') {
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    if (StrGetChar(line, *col) == '&') {
         (*col)++;
         return TOKEN_LOGICAL_AND;
     }
@@ -180,8 +182,8 @@ enum tokenType ParseAmpersand(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParsePipe(struct tokenContext* tc, int* col) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
-    if (StringGet(line, *col) == '|') {
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    if (StrGetChar(line, *col) == '|') {
         (*col)++;
         return TOKEN_LOGICAL_OR;
     }
@@ -190,8 +192,8 @@ enum tokenType ParsePipe(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParseLessThan(struct tokenContext* tc, int* col) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
-    char c = StringGet(line, *col);
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    char c = StrGetChar(line, *col);
     if (c == '<') {
         (*col)++;
         return TOKEN_BITSHIFT_LEFT;
@@ -205,8 +207,8 @@ enum tokenType ParseLessThan(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParseGreaterThan(struct tokenContext* tc, int* col) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
-    char c = StringGet(line, *col);
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    char c = StrGetChar(line, *col);
     if (c == '>') {
         (*col)++;
         return TOKEN_BITSHIFT_RIGHT;
@@ -220,8 +222,8 @@ enum tokenType ParseGreaterThan(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParsePlusSign(struct tokenContext* tc, int* col) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
-    char c = StringGet(line, *col);
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    char c = StrGetChar(line, *col);
     if (c == '+') {
         (*col)++;
         return TOKEN_INCREMENT;
@@ -235,8 +237,8 @@ enum tokenType ParsePlusSign(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParseHyphen(struct tokenContext* tc, int* col) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
-    char c = StringGet(line, *col);
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    char c = StrGetChar(line, *col);
     if (c == '-') {
         (*col)++;
         return TOKEN_DECREMENT;
@@ -250,8 +252,8 @@ enum tokenType ParseHyphen(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParseAsterisk(struct tokenContext* tc, int* col) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
-    if (StringGet(line, *col) == '=') {
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    if (StrGetChar(line, *col) == '=') {
         (*col)++;
         return TOKEN_ASSIGNMENT_MUL;
     }
@@ -260,8 +262,8 @@ enum tokenType ParseAsterisk(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParseForwardSlash(struct tokenContext* tc, int* col) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
-    if (StringGet(line, *col) == '=') {
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    if (StrGetChar(line, *col) == '=') {
         (*col)++;
         return TOKEN_ASSIGNMENT_DIV;
     }
@@ -270,8 +272,8 @@ enum tokenType ParseForwardSlash(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParsePercentSign(struct tokenContext* tc, int* col) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
-    if (StringGet(line, *col) == '=') {
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    if (StrGetChar(line, *col) == '=') {
         (*col)++;
         return TOKEN_ASSIGNMENT_MODULO;
     }
@@ -280,7 +282,7 @@ enum tokenType ParsePercentSign(struct tokenContext* tc, int* col) {
 
 
 void ParseTokenSwitch(struct tokenContext* tc, struct token* tok, int* col) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
     char c = line.ptr[*col];
     (*col)++;
 
@@ -322,54 +324,54 @@ void ParseTokenSwitch(struct tokenContext* tc, struct token* tok, int* col) {
 
 
 static void SpecifyIdentifier(struct token* tok) {
-    if (strncmp(StringGetPtr(tok->str), "import", StringGetLen(tok->str))) tok->type = TOKEN_IMPORT;
-    if (strncmp(StringGetPtr(tok->str), "type", StringGetLen(tok->str))) tok->type = TOKEN_TYPE;
-    if (strncmp(StringGetPtr(tok->str), "if", StringGetLen(tok->str))) tok->type = TOKEN_IF;
-    if (strncmp(StringGetPtr(tok->str), "else", StringGetLen(tok->str))) tok->type = TOKEN_ELSE;
-    if (strncmp(StringGetPtr(tok->str), "for", StringGetLen(tok->str))) tok->type = TOKEN_FOR;
-    if (strncmp(StringGetPtr(tok->str), "defer", StringGetLen(tok->str))) tok->type = TOKEN_DEFER;
-    if (strncmp(StringGetPtr(tok->str), "switch", StringGetLen(tok->str))) tok->type = TOKEN_SWITCH;
-    if (strncmp(StringGetPtr(tok->str), "return", StringGetLen(tok->str))) tok->type = TOKEN_RETURN;
-    if (strncmp(StringGetPtr(tok->str), "break", StringGetLen(tok->str))) tok->type = TOKEN_BREAK;
-    if (strncmp(StringGetPtr(tok->str), "match", StringGetLen(tok->str))) tok->type = TOKEN_MATCH;
-    if (strncmp(StringGetPtr(tok->str), "case", StringGetLen(tok->str))) tok->type = TOKEN_CASE;
-    if (strncmp(StringGetPtr(tok->str), "bool", StringGetLen(tok->str))) tok->type = TOKEN_BOOL;
-    if (strncmp(StringGetPtr(tok->str), "byte", StringGetLen(tok->str))) tok->type = TOKEN_BYTE;
-    if (strncmp(StringGetPtr(tok->str), "int8", StringGetLen(tok->str))) tok->type = TOKEN_INT8;
-    if (strncmp(StringGetPtr(tok->str), "int16", StringGetLen(tok->str))) tok->type = TOKEN_INT16;
-    if (strncmp(StringGetPtr(tok->str), "int32", StringGetLen(tok->str))) tok->type = TOKEN_INT32;
-    if (strncmp(StringGetPtr(tok->str), "int64", StringGetLen(tok->str))) tok->type = TOKEN_INT64;
-    if (strncmp(StringGetPtr(tok->str), "uint8", StringGetLen(tok->str))) tok->type = TOKEN_UINT8;
-    if (strncmp(StringGetPtr(tok->str), "uint16", StringGetLen(tok->str))) tok->type = TOKEN_UINT16;
-    if (strncmp(StringGetPtr(tok->str), "uint32", StringGetLen(tok->str))) tok->type = TOKEN_UINT32;
-    if (strncmp(StringGetPtr(tok->str), "uint64", StringGetLen(tok->str))) tok->type = TOKEN_UINT64;
-    if (strncmp(StringGetPtr(tok->str), "float32", StringGetLen(tok->str))) tok->type = TOKEN_FLOAT32;
-    if (strncmp(StringGetPtr(tok->str), "float64", StringGetLen(tok->str))) tok->type = TOKEN_FLOAT64;
-    if (strncmp(StringGetPtr(tok->str), "struct", StringGetLen(tok->str))) tok->type = TOKEN_STRUCT;
-    if (strncmp(StringGetPtr(tok->str), "vocab", StringGetLen(tok->str))) tok->type = TOKEN_VOCAB;
-    if (strncmp(StringGetPtr(tok->str), "func", StringGetLen(tok->str))) tok->type = TOKEN_FUNC;
+    if (strncmp(StrGetPtr(tok->str), "import", StrGetLen(tok->str))) tok->type = TOKEN_IMPORT;
+    if (strncmp(StrGetPtr(tok->str), "type", StrGetLen(tok->str))) tok->type = TOKEN_TYPE;
+    if (strncmp(StrGetPtr(tok->str), "if", StrGetLen(tok->str))) tok->type = TOKEN_IF;
+    if (strncmp(StrGetPtr(tok->str), "else", StrGetLen(tok->str))) tok->type = TOKEN_ELSE;
+    if (strncmp(StrGetPtr(tok->str), "for", StrGetLen(tok->str))) tok->type = TOKEN_FOR;
+    if (strncmp(StrGetPtr(tok->str), "defer", StrGetLen(tok->str))) tok->type = TOKEN_DEFER;
+    if (strncmp(StrGetPtr(tok->str), "switch", StrGetLen(tok->str))) tok->type = TOKEN_SWITCH;
+    if (strncmp(StrGetPtr(tok->str), "return", StrGetLen(tok->str))) tok->type = TOKEN_RETURN;
+    if (strncmp(StrGetPtr(tok->str), "break", StrGetLen(tok->str))) tok->type = TOKEN_BREAK;
+    if (strncmp(StrGetPtr(tok->str), "match", StrGetLen(tok->str))) tok->type = TOKEN_MATCH;
+    if (strncmp(StrGetPtr(tok->str), "case", StrGetLen(tok->str))) tok->type = TOKEN_CASE;
+    if (strncmp(StrGetPtr(tok->str), "bool", StrGetLen(tok->str))) tok->type = TOKEN_BOOL;
+    if (strncmp(StrGetPtr(tok->str), "byte", StrGetLen(tok->str))) tok->type = TOKEN_BYTE;
+    if (strncmp(StrGetPtr(tok->str), "int8", StrGetLen(tok->str))) tok->type = TOKEN_INT8;
+    if (strncmp(StrGetPtr(tok->str), "int16", StrGetLen(tok->str))) tok->type = TOKEN_INT16;
+    if (strncmp(StrGetPtr(tok->str), "int32", StrGetLen(tok->str))) tok->type = TOKEN_INT32;
+    if (strncmp(StrGetPtr(tok->str), "int64", StrGetLen(tok->str))) tok->type = TOKEN_INT64;
+    if (strncmp(StrGetPtr(tok->str), "uint8", StrGetLen(tok->str))) tok->type = TOKEN_UINT8;
+    if (strncmp(StrGetPtr(tok->str), "uint16", StrGetLen(tok->str))) tok->type = TOKEN_UINT16;
+    if (strncmp(StrGetPtr(tok->str), "uint32", StrGetLen(tok->str))) tok->type = TOKEN_UINT32;
+    if (strncmp(StrGetPtr(tok->str), "uint64", StrGetLen(tok->str))) tok->type = TOKEN_UINT64;
+    if (strncmp(StrGetPtr(tok->str), "float32", StrGetLen(tok->str))) tok->type = TOKEN_FLOAT32;
+    if (strncmp(StrGetPtr(tok->str), "float64", StrGetLen(tok->str))) tok->type = TOKEN_FLOAT64;
+    if (strncmp(StrGetPtr(tok->str), "struct", StrGetLen(tok->str))) tok->type = TOKEN_STRUCT;
+    if (strncmp(StrGetPtr(tok->str), "vocab", StrGetLen(tok->str))) tok->type = TOKEN_VOCAB;
+    if (strncmp(StrGetPtr(tok->str), "func", StrGetLen(tok->str))) tok->type = TOKEN_FUNC;
 }
 
 
 struct token ParseToken(struct tokenContext* tc, int* col) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
     *col= FindNonSpaceNonTab(line, *col);
 
     struct token tok;
-    tok.lineNr = tc->lines.nStrings;
-    tok.str = StringSlice(&line, *col, *col);
+    tok.lineNr = tc->lines.nStrs;
+    tok.str = StrSlice(line, *col, *col);
     tok.context = tc;
 
     ParseTokenSwitch(tc, &tok, col);
-    StringSetLen(&(tok.str), *col);
+    StrSetLen(&(tok.str), *col);
 
     if (tok.type == TOKEN_IDENTIFIER) SpecifyIdentifier(&tok);
     return tok;
 }
 
 
-struct string ReadLine(FILE* fp, bool* eof) {
-    struct string str = StringNew();
+struct str ReadLine(FILE* fp, bool* eof) {
+    struct str str = StrNew();
 
     while(true) {
         int c = fgetc(fp);
@@ -377,7 +379,7 @@ struct string ReadLine(FILE* fp, bool* eof) {
             *eof = true;
             c = '\n';
         }
-        StringAppend(&str, (char)c);
+        StrAppend(&str, (char)c);
         if (c == '\n') break;
     }
     return str;
@@ -387,8 +389,8 @@ struct string ReadLine(FILE* fp, bool* eof) {
 struct token TokenEOF(struct tokenContext* tc) {
     struct token tok;
     tok.type = TOKEN_EOF;
-    tok.lineNr = tc->lines.nStrings;
-    tok.str = StringNew();
+    tok.lineNr = tc->lines.nStrs;
+    tok.str = StrNew();
     tok.context = tc;
     return tok;
 }
@@ -402,21 +404,21 @@ bool IsValidChar(char c) {
 
 
 void ValidateLatestLine(struct tokenContext* tc) {
-    struct string line = tc->lines.strings[tc->lines.nStrings -1];
+    struct str line = tc->lines.strs[tc->lines.nStrs -1];
     for (int i = 0; i < line.len -1; i++) {
-        if (!IsValidChar(StringGet(line, i))) SyntaxErrorInvalidChar(tc, i, NULL);
+        if (!IsValidChar(StrGetChar(line, i))) SyntaxErrorInvalidChar(tc, i, NULL);
     }
 }
 
 
 void ParseLine(struct tokenContext* tc) {
     bool eof = false;
-    struct string line = ReadLine(tc->fp, &eof);
-    StringStackPush(&(tc->lines), line);
+    struct str line = ReadLine(tc->fp, &eof);
+    StrStackPush(&(tc->lines), line);
     ValidateLatestLine(tc);
 
     int col= 0;
-    while(col < StringGetLen(line)) {
+    while(col < StrGetLen(line)) {
         tokenPipePush(&(tc->tokens), ParseToken(tc, &col));
     }
     if (eof) {
@@ -426,12 +428,15 @@ void ParseLine(struct tokenContext* tc) {
 
 
 struct token TokenNext(struct tokenContext* tc) {
-    if (tokenPipeIsEmpty(&(tc->tokens))) {
-        ParseLine(tc);
+    struct token tok;
+    do {
+        if (tokenPipeIsEmpty(&(tc->tokens))) {
+            ParseLine(tc);
+        }
+        tok = tokenPipePop(&(tc->tokens));
+        if (tok.type == TOKEN_EOF) tokenPipePush(&(tc->tokens), tok);
     }
-
-    struct token tok = tokenPipePop(&(tc->tokens));
-    if (tok.type == TOKEN_EOF) tokenPipePush(&(tc->tokens), tok);
+    while (tok.type == TOKEN_COMMENT);
     return tok;
 }
 
