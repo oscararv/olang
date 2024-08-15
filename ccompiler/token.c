@@ -62,10 +62,19 @@ struct tokenContext TokenContextNew(char* fileName) {
 }
 
 
-int FindNonSpaceNonTab(struct str str, int col) {
-    int i = col;
-    while(str.ptr[i] == ' ' || str.ptr[i] == '\t') i++;
-    return i;
+void ParseComment(struct str line, int* col) {
+    while (StrGetChar(line, *col) != '\n') (*col)++;
+}
+
+
+void FindTokenStart(struct str line, int* col) {
+    char c = StrGetChar(line, *col);
+    if (c == '#') ParseComment(line, col);
+    while(c == ' ' || c == '\t') {
+        (*col)++;
+        c = StrGetChar(line, *col);
+        if (c == '#') ParseComment(line, col);
+    }
 }
 
 
@@ -81,13 +90,6 @@ bool IsIdentifier(char c) {
     if (c >= 'a' && c <= 'z') return true;
     if (c == '_') return true;
     return false;
-}
-
-
-void ParseComment(struct tokenContext* tc, int* col) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
-    char c;
-    while ((c = StrGetChar(line, *col)) != '\n') (*col)++;
 }
 
 
@@ -292,7 +294,6 @@ void ParseTokenSwitch(struct tokenContext* tc, struct token* tok, int* col) {
         ParseIdentifier(tc, col);
     }
     else switch (c) {
-        case '#': tok->type = TOKEN_COMMENT; ParseComment(tc, col); break;
         case '\n': tok->type = TOKEN_NEWLINE; break;
         case '\'': tok->type = TOKEN_CHAR; ParseCharConstant(tc, col); break;
         case '"': tok->type = TOKEN_STRING; ParseStringConstant(tc, col); break;
@@ -355,7 +356,7 @@ static void SpecifyIdentifier(struct token* tok) {
 
 struct token ParseToken(struct tokenContext* tc, int* col) {
     struct str line = tc->lines.strs[tc->lines.nStrs -1];
-    *col= FindNonSpaceNonTab(line, *col);
+    FindTokenStart(line, col);
 
     struct token tok;
     tok.lineNr = tc->lines.nStrs;
@@ -429,14 +430,9 @@ void ParseLine(struct tokenContext* tc) {
 
 struct token TokenNext(struct tokenContext* tc) {
     struct token tok;
-    do {
-        if (tokenPipeIsEmpty(&(tc->tokens))) {
-            ParseLine(tc);
-        }
-        tok = tokenPipePop(&(tc->tokens));
-        if (tok.type == TOKEN_EOF) tokenPipePush(&(tc->tokens), tok);
-    }
-    while (tok.type == TOKEN_COMMENT);
+    if (tokenPipeIsEmpty(&(tc->tokens))) ParseLine(tc);
+    tok = tokenPipePop(&(tc->tokens));
+    if (tok.type == TOKEN_EOF) tokenPipePush(&(tc->tokens), tok);
     return tok;
 }
 

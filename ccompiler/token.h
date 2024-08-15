@@ -5,7 +5,6 @@
 
 enum tokenType {
     TOKEN_EOF,
-    TOKEN_COMMENT,
     TOKEN_NEWLINE,
     TOKEN_INT,
     TOKEN_FLOAT,
