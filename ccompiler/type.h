@@ -1,11 +1,10 @@
-#ifndef PARSER_H
-#define PARSER_H
-#include "token.h"
+#ifndef TYPE_H
+#define TYPE_H
+#include "str.h"
 
 enum baseType {
     BASETYPE_BYTE,
     BASETYPE_BOOL,
-    BASETYPE_INT,
     BASETYPE_INT8,
     BASETYPE_INT16,
     BASETYPE_INT32,
@@ -14,7 +13,6 @@ enum baseType {
     BASETYPE_UINT16,
     BASETYPE_UINT32,
     BASETYPE_UINT64,
-    BASETYPE_FLOAT,
     BASETYPE_FLOAT32,
     BASETYPE_FLOAT64,
     BASETYPE_ARRAY,
@@ -23,10 +21,16 @@ enum baseType {
     BASETYPE_FUNC
 };
 
-struct parserContext {
-    struct tokenContext tc;
+struct type {
+    enum baseType bType;
+    struct str name;
+    void* advanced;
 };
 
-void ParseFile(char* fileName);
+struct typeList {
+    int len;
+    int cap;
+    struct type* ptr;
+};
 
-#endif //PARSER_H
+#endif //TYPE_H

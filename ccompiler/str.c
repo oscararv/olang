@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "error.h"
 #include "str.h"
 
@@ -10,6 +11,28 @@ struct str StrNew() {
     str.len = 0;
     str.cap = 0;
     str.ptr = NULL;
+    return str;
+}
+
+
+void StrAppend(struct str* str, char c) {
+    if (str->isSlice) Error("string slices may not be appended");
+    if (str->len >= str->cap) {
+        str->cap += 100;
+        str->ptr = realloc(str->ptr, sizeof(char) * str->cap);
+        CheckPtr(str->ptr);
+    }
+
+    str->ptr[str->len] = c;
+    str->len++;
+}
+
+
+struct str StrFromCharArray(char* arr) {
+    struct str str = StrNew();
+    for (int i = 0; i < (int)strlen(arr); i++) {
+        StrAppend(&str, arr[i]);
+    }
     return str;
 }
 
@@ -27,19 +50,6 @@ struct str StrSlice(struct str orig, int start, int len) {
 
 void StrSetLen(struct str* str, int len) {
     str->len = len;
-}
-
-
-void StrAppend(struct str* str, char c) {
-    if (str->isSlice) Error("string slices may not be appended");
-    if (str->len >= str->cap) {
-        str->cap += 100;
-        str->ptr = realloc(str->ptr, sizeof(char) * str->cap);
-        CheckPtr(str->ptr);
-    }
-
-    str->ptr[str->len] = c;
-    str->len++;
 }
 
 

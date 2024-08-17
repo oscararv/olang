@@ -84,20 +84,20 @@ void SyntaxErrorInvalidChar(struct tokenContext* tc, int col, char* reason) {
 
 
 //reason may be NULL
-void SyntaxErrorInvalidToken(struct token* tok, char* reason) {
-    struct tokenContext* tc = tok->context;
+void SyntaxErrorInvalidToken(struct token tok, char* reason) {
+    struct tokenContext* tc = tok.context;
     struct str line = tc->lines.strs[tc->lines.nStrs -1];
     SyntaxErrorBase(tc->lines.nStrs, tc->fileName);
     fputs(COLOR_YELLOW, stdout);
-    fputs("invalid character \"", stdout);
-    PrintStr(line);
+    fputs("invalid token \"", stdout);
+    PrintStr(tok.str);
     fputs("\"", stdout);
     if (reason) {
         fputs(" ", stdout);
         fputs(reason, stdout);
     }
     puts(COLOR_RESET);
-    SyntaxErrorLine(line, StrGetPtr(tok->str) - StrGetPtr(line),
-            StrGetLen(tok->str));
+    int colStart = StrGetPtr(tok.str) - StrGetPtr(line);
+    SyntaxErrorLine(line, colStart, colStart + StrGetLen(tok.str) -1);
     exit(EXIT_FAILURE);
 }

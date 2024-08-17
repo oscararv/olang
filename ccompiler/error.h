@@ -9,6 +9,6 @@ void CheckPtr(void* ptr);
 void SyntaxErrorInvalidChar(struct tokenContext* tc, int col, char* reason);
 
 //reason may be NULL
-void SyntaxErrorInvalidToken(struct token* tok, char* reason);
+void SyntaxErrorInvalidToken(struct token tok, char* reason);
 
 #endif //ERROR_H

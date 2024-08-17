@@ -21,8 +21,9 @@ struct strStack {
 
 
 struct str StrNew();
-struct str StrSlice(struct str orig, int start, int len);
 void StrAppend(struct str* str, char c);
+struct str StrFromCharArray(char* arr);
+struct str StrSlice(struct str orig, int start, int len);
 void StrSetLen(struct str* str, int len);
 int StrGetLen(struct str str);
 char StrGetChar(struct str str, int index);

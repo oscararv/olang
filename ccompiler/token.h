@@ -2,7 +2,6 @@
 #define TOKEN_H
 #include "str.h"
 
-
 enum tokenType {
     TOKEN_EOF,
     TOKEN_NEWLINE,
@@ -71,7 +70,7 @@ enum tokenType {
     TOKEN_DIV,
     TOKEN_MODULO,
     TOKEN_INCREMENT,
-    TOKEN_DECREMENT,
+    TOKEN_DECREMENT
 };
 
 
@@ -102,6 +101,6 @@ struct tokenContext {
 struct tokenContext TokenContextNew(char* fileName);
 struct token TokenNext(struct tokenContext* tc);
 struct token TokenNextDiscardNewlines(struct tokenContext* tc);
-
+void TokenUnget(struct tokenContext* tc, struct token tok);
 
 #endif //TOKEN_H
