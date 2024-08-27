@@ -1,7 +1,20 @@
 #this is a comment
-type,if then
-"this is a string'"
-#fhh
-'\''({[
-]})())) -- 'd' test this
-""
+type iff int32 
+
+
+type MyStructInst struct {
+    i int32
+}
+
+
+type MyStructure struct {
+    myInt int32[],
+    myStruct MyStructInst,
+    myInt2 int32[2],
+    myStr MyStructInst{int32{2 3} 2} 2 3},
+}
+
+
+type MyVocab vocab {
+    I, THEM, YOU, WILL, ME, HOW, ARE, THEY
+}

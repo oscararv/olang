@@ -45,6 +45,7 @@ void tokenPipeUnpop(struct tokenPipe* pipe, struct token tok) {
     if (pipe->nDelivered <= 0) Error("tried to unpop to pipe with no deliveries");
     pipe->nDelivered--;
     pipe->tokens[pipe->nDelivered] = tok;
+    pipe->nAvailable++;
 }
 
 
@@ -57,7 +58,7 @@ struct tokenContext TokenContextNew(char* fileName) {
     CheckPtr(tc.fileName);
 
     tc.tokens = TokenPipeNew();
-    tc.lines = StrStackNew();
+    tc.lines = StrListNew();
     return tc;
 }
 
@@ -325,32 +326,20 @@ void ParseTokenSwitch(struct tokenContext* tc, struct token* tok, int* col) {
 
 
 static void SpecifyIdentifier(struct token* tok) {
-    if (!strncmp(StrGetPtr(tok->str), "import", StrGetLen(tok->str))) tok->type = TOKEN_IMPORT;
-    else if (!strncmp(StrGetPtr(tok->str), "type", StrGetLen(tok->str))) tok->type = TOKEN_TYPE;
-    else if (!strncmp(StrGetPtr(tok->str), "if", StrGetLen(tok->str))) tok->type = TOKEN_IF;
-    else if (!strncmp(StrGetPtr(tok->str), "else", StrGetLen(tok->str))) tok->type = TOKEN_ELSE;
-    else if (!strncmp(StrGetPtr(tok->str), "for", StrGetLen(tok->str))) tok->type = TOKEN_FOR;
-    else if (!strncmp(StrGetPtr(tok->str), "defer", StrGetLen(tok->str))) tok->type = TOKEN_DEFER;
-    else if (!strncmp(StrGetPtr(tok->str), "switch", StrGetLen(tok->str))) tok->type = TOKEN_SWITCH;
-    else if (!strncmp(StrGetPtr(tok->str), "return", StrGetLen(tok->str))) tok->type = TOKEN_RETURN;
-    else if (!strncmp(StrGetPtr(tok->str), "break", StrGetLen(tok->str))) tok->type = TOKEN_BREAK;
-    else if (!strncmp(StrGetPtr(tok->str), "match", StrGetLen(tok->str))) tok->type = TOKEN_MATCH;
-    else if (!strncmp(StrGetPtr(tok->str), "case", StrGetLen(tok->str))) tok->type = TOKEN_CASE;
-    else if (!strncmp(StrGetPtr(tok->str), "bool", StrGetLen(tok->str))) tok->type = TOKEN_BOOL;
-    else if (!strncmp(StrGetPtr(tok->str), "byte", StrGetLen(tok->str))) tok->type = TOKEN_BYTE;
-    else if (!strncmp(StrGetPtr(tok->str), "int8", StrGetLen(tok->str))) tok->type = TOKEN_INT8;
-    else if (!strncmp(StrGetPtr(tok->str), "int16", StrGetLen(tok->str))) tok->type = TOKEN_INT16;
-    else if (!strncmp(StrGetPtr(tok->str), "int32", StrGetLen(tok->str))) tok->type = TOKEN_INT32;
-    else if (!strncmp(StrGetPtr(tok->str), "int64", StrGetLen(tok->str))) tok->type = TOKEN_INT64;
-    else if (!strncmp(StrGetPtr(tok->str), "uint8", StrGetLen(tok->str))) tok->type = TOKEN_UINT8;
-    else if (!strncmp(StrGetPtr(tok->str), "uint16", StrGetLen(tok->str))) tok->type = TOKEN_UINT16;
-    else if (!strncmp(StrGetPtr(tok->str), "uint32", StrGetLen(tok->str))) tok->type = TOKEN_UINT32;
-    else if (!strncmp(StrGetPtr(tok->str), "uint64", StrGetLen(tok->str))) tok->type = TOKEN_UINT64;
-    else if (!strncmp(StrGetPtr(tok->str), "float32", StrGetLen(tok->str))) tok->type = TOKEN_FLOAT32;
-    else if (!strncmp(StrGetPtr(tok->str), "float64", StrGetLen(tok->str))) tok->type = TOKEN_FLOAT64;
-    else if (!strncmp(StrGetPtr(tok->str), "struct", StrGetLen(tok->str))) tok->type = TOKEN_STRUCT;
-    else if (!strncmp(StrGetPtr(tok->str), "vocab", StrGetLen(tok->str))) tok->type = TOKEN_VOCAB;
-    else if (!strncmp(StrGetPtr(tok->str), "func", StrGetLen(tok->str))) tok->type = TOKEN_FUNC;
+    if (StrEqualCharArray(tok->str, "import")) tok->type = TOKEN_IMPORT;
+    else if (StrEqualCharArray(tok->str, "type")) tok->type = TOKEN_TYPE;
+    else if (StrEqualCharArray(tok->str, "if")) tok->type = TOKEN_IF;
+    else if (StrEqualCharArray(tok->str, "else")) tok->type = TOKEN_ELSE;
+    else if (StrEqualCharArray(tok->str, "for")) tok->type = TOKEN_FOR;
+    else if (StrEqualCharArray(tok->str, "defer")) tok->type = TOKEN_DEFER;
+    else if (StrEqualCharArray(tok->str, "switch")) tok->type = TOKEN_SWITCH;
+    else if (StrEqualCharArray(tok->str, "return")) tok->type = TOKEN_RETURN;
+    else if (StrEqualCharArray(tok->str, "break")) tok->type = TOKEN_BREAK;
+    else if (StrEqualCharArray(tok->str, "match")) tok->type = TOKEN_MATCH;
+    else if (StrEqualCharArray(tok->str, "case")) tok->type = TOKEN_CASE;
+    else if (StrEqualCharArray(tok->str, "struct")) tok->type = TOKEN_STRUCT;
+    else if (StrEqualCharArray(tok->str, "vocab")) tok->type = TOKEN_VOCAB;
+    else if (StrEqualCharArray(tok->str, "func")) tok->type = TOKEN_FUNC;
 }
 
 
@@ -416,7 +405,7 @@ void ValidateLatestLine(struct tokenContext* tc) {
 void ParseLine(struct tokenContext* tc) {
     bool eof = false;
     struct str line = ReadLine(tc->fp, &eof);
-    StrStackPush(&(tc->lines), line);
+    StrListAppend(&(tc->lines), line);
     ValidateLatestLine(tc);
 
     int col= 0;
@@ -435,6 +424,13 @@ struct token TokenNext(struct tokenContext* tc) {
     tok = tokenPipePop(&(tc->tokens));
     if (tok.type == TOKEN_EOF) tokenPipePush(&(tc->tokens), tok);
     return tok;
+}
+
+
+void TokenDiscardNewlines(struct tokenContext* tc) {
+    struct token tok;
+    while((tok = TokenNext(tc)).type == TOKEN_NEWLINE);
+    tokenPipeUnpop(&(tc->tokens), tok);
 }
 
 

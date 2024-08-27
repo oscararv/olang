@@ -46,8 +46,8 @@ static void PrintStr(struct str str) {
 }
 
 
-static void SyntaxErrorLine(struct str line, int colStart, int colEnd) {
-    fputs(COLOR_GREEN "-> " COLOR_BRIGHT_BLACK, stdout);
+static void SyntaxErrorLine(int lineNr, struct str line, int colStart, int colEnd) {
+    printf(COLOR_GREEN "%d " COLOR_BRIGHT_BLACK, lineNr);
     for (int i = 0; i < colStart; i++) {
         PrintCharIgnoreNewline(StrGetChar(line, i));
     }
@@ -70,7 +70,7 @@ void SyntaxErrorInvalidChar(struct tokenContext* tc, int col, char* reason) {
     struct str line = tc->lines.strs[tc->lines.nStrs -1];
     SyntaxErrorBase(tc->lines.nStrs, tc->fileName);
     fputs(COLOR_YELLOW, stdout);
-    fputs("invalid character \"", stdout);
+    fputs("\"", stdout);
     PrintChar(StrGetChar(line, col));
     fputs("\"", stdout);
     if (reason) {
@@ -78,7 +78,7 @@ void SyntaxErrorInvalidChar(struct tokenContext* tc, int col, char* reason) {
         fputs(reason, stdout);
     }
     puts(COLOR_RESET);
-    SyntaxErrorLine(line, col, col);
+    SyntaxErrorLine(tc->lines.nStrs, line, col, col);
     exit(EXIT_FAILURE);
 }
 
@@ -89,7 +89,7 @@ void SyntaxErrorInvalidToken(struct token tok, char* reason) {
     struct str line = tc->lines.strs[tc->lines.nStrs -1];
     SyntaxErrorBase(tc->lines.nStrs, tc->fileName);
     fputs(COLOR_YELLOW, stdout);
-    fputs("invalid token \"", stdout);
+    fputs("\"", stdout);
     PrintStr(tok.str);
     fputs("\"", stdout);
     if (reason) {
@@ -97,7 +97,7 @@ void SyntaxErrorInvalidToken(struct token tok, char* reason) {
         fputs(reason, stdout);
     }
     puts(COLOR_RESET);
-    int colStart = StrGetPtr(tok.str) - StrGetPtr(line);
-    SyntaxErrorLine(line, colStart, colStart + StrGetLen(tok.str) -1);
+    int colStart = StrGetSubStrIndex(line, tok.str);
+    SyntaxErrorLine(tc->lines.nStrs, line, colStart, colStart + StrGetLen(tok.str) -1);
     exit(EXIT_FAILURE);
 }
