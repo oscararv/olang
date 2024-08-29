@@ -7,7 +7,7 @@ type MyStructInst struct {
 }
 
 
-type MyStructure struct {
+type MyStructture struct {
     myInt int32[],
     myStruct MyStructInst,
     myInt2 int32[2],

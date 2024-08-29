@@ -91,6 +91,12 @@ void StrListAppend(struct strList* ss, struct str str) {
 }
 
 
+bool StrListExists(struct strList* ss, struct str str) {
+    for (int i = 0; i < ss->nStrs; i++) if (StrEqual(ss->strs[i], str)) return true;
+    return false;
+}
+
+
 struct str StrListGet(struct strList* ss, int index) {
     if (index >= ss->nStrs) Error("invalid string list index");
     return ss->strs[index];

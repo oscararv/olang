@@ -32,6 +32,7 @@ int StrGetLen(struct str str);
 char StrGetChar(struct str str, int index);
 struct strList StrListNew();
 void StrListAppend(struct strList* ss, struct str str);
+bool StrListExists(struct strList* ss, struct str str);
 struct str StrListGet(struct strList* ss, int index);
 bool StrEqual(struct str a, struct str b);
 bool StrEqualCharArray(struct str str, char* ca);

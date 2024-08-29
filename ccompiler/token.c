@@ -33,6 +33,13 @@ void tokenPipePush(struct tokenPipe* pipe, struct token tok) {
 }
 
 
+struct token tokenPipePeek(struct tokenPipe* pipe) {
+    if (pipe->nAvailable <= 0) Error("tried to peak into empty token pipe");
+    return pipe->tokens[pipe->nDelivered];
+
+}
+
+
 struct token tokenPipePop(struct tokenPipe* pipe) {
     if (pipe->nAvailable <= 0) Error("tried to pop from empty token pipe");
     pipe->nDelivered++;
@@ -415,6 +422,12 @@ void ParseLine(struct tokenContext* tc) {
     if (eof) {
         tokenPipePush(&(tc->tokens), TokenEOF(tc));
     }
+}
+
+
+struct token TokenPeek(struct tokenContext* tc) {
+    if (tokenPipeIsEmpty(&(tc->tokens))) ParseLine(tc);
+    return tokenPipePeek(&(tc->tokens));
 }
 
 

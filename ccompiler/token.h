@@ -88,6 +88,7 @@ struct tokenContext {
 
 
 struct tokenContext TokenContextNew(char* fileName);
+struct token TokenPeek(struct tokenContext* tc);
 struct token TokenNext(struct tokenContext* tc);
 void TokenDiscardNewlines(struct tokenContext* tc);
 struct token TokenNextDiscardNewlines(struct tokenContext* tc);
