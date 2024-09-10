@@ -75,7 +75,7 @@ struct tokenPipe {
     int nAvailable;
     int nDelivered;
     int cap;
-    struct token* tokens;
+    struct token* ptr;
 };
 
 
@@ -92,6 +92,7 @@ struct token TokenPeek(struct tokenContext* tc);
 struct token TokenNext(struct tokenContext* tc);
 void TokenDiscardNewlines(struct tokenContext* tc);
 struct token TokenNextDiscardNewlines(struct tokenContext* tc);
-void TokenUnget(struct tokenContext* tc, struct token tok);
+void TokenUnget(struct tokenContext* tc);
+void TokenRestart(struct tokenContext* tc);
 
 #endif //TOKEN_H

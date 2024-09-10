@@ -19,7 +19,7 @@ void StrAppend(struct str* str, char c) {
     if (str->isSlice) Error("string slices may not be appended");
     if (str->len >= str->cap) {
         str->cap += 100;
-        str->ptr = realloc(str->ptr, sizeof(char) * str->cap);
+        str->ptr = realloc(str->ptr, sizeof(*(str->ptr)) * str->cap);
         CheckPtr(str->ptr);
     }
 
@@ -58,48 +58,60 @@ int StrGetLen(struct str str) {
 }
 
 
-//assumes a contains b
-int StrGetSubStrIndex(struct str a, struct str b) {
+int StrGetSliceStrIndex(struct str a, struct str b) {
+    int diff = b.ptr - a.ptr;
+    if (diff < 0 || diff >= a.len) Error("not a valid string slice");
     return b.ptr - a.ptr;
 }
 
 
 char StrGetChar(struct str str, int index) {
-    if (index >= str.len) Error("index out of bounds when reading string");
+    if (index < 0 || index >= str.len) Error("index out of bounds when reading string");
     return str.ptr[index];
 }
 
 
 struct strList StrListNew() {
-    struct strList ss;
-    ss.nStrs = 0;
-    ss.cap = 0;
-    ss.strs = NULL;
-    return ss;
+    struct strList sl;
+    sl.len = 0;
+    sl.cap = 0;
+    sl.ptr = NULL;
+    return sl;
 }
 
 
-void StrListAppend(struct strList* ss, struct str str) {
-    if (ss->nStrs >= ss->cap) {
-        ss->cap += 100;
-        ss->strs = realloc(ss->strs, sizeof(struct str));
-        CheckPtr(ss->strs);
+void StrListAppend(struct strList* sl, struct str str) {
+    if (sl->len >= sl->cap) {
+        sl->cap += 100;
+        sl->ptr = realloc(sl->ptr, sizeof(*(sl->ptr)) * sl->cap);
+        CheckPtr(sl->ptr);
     }
 
-    ss->strs[ss->nStrs] = str;
-    ss->nStrs++;
+    sl->ptr[sl->len] = str;
+    sl->len++;
 }
 
 
-bool StrListExists(struct strList* ss, struct str str) {
-    for (int i = 0; i < ss->nStrs; i++) if (StrEqual(ss->strs[i], str)) return true;
+bool StrListExists(struct strList* sl, struct str str) {
+    for (int i = 0; i < sl->len; i++) if (StrEqual(sl->ptr[i], str)) return true;
     return false;
 }
 
 
-struct str StrListGet(struct strList* ss, int index) {
-    if (index >= ss->nStrs) Error("invalid string list index");
-    return ss->strs[index];
+struct str StrListGet(struct strList sl, int index) {
+    if (index < 0 || index >= sl.len) Error("invalid string list index");
+    return sl.ptr[index];
+}
+
+
+struct str StrListGetLast(struct strList sl) {
+    if (sl.len < 1) Error("no strings added to string list yet");
+    return sl.ptr[sl.len -1];
+}
+
+
+int StrListLen(struct strList sl) {
+    return sl.len;
 }
 
 

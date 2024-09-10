@@ -11,7 +11,8 @@ struct tokenPipe TokenPipeNew() {
     struct tokenPipe tp;
     tp.nAvailable = 0;
     tp.nDelivered = 0;
-    tp.tokens = NULL;
+    tp.cap = 0;
+    tp.ptr = NULL;
     return tp;
 }
 
@@ -24,18 +25,18 @@ bool tokenPipeIsEmpty(struct tokenPipe* pipe) {
 void tokenPipePush(struct tokenPipe* pipe, struct token tok) {
     if (pipe->nAvailable + pipe->nDelivered >= pipe->cap) {
         pipe->cap += 1000;
-        pipe->tokens = realloc(pipe->tokens, sizeof(struct token) * pipe->cap);
-        CheckPtr(pipe->tokens);
+        pipe->ptr = realloc(pipe->ptr, sizeof(*(pipe->ptr)) * pipe->cap);
+        CheckPtr(pipe->ptr);
     }
 
-    pipe->tokens[pipe->nDelivered + pipe->nAvailable] = tok;
+    pipe->ptr[pipe->nDelivered + pipe->nAvailable] = tok;
     pipe->nAvailable++;
 }
 
 
 struct token tokenPipePeek(struct tokenPipe* pipe) {
     if (pipe->nAvailable <= 0) Error("tried to peak into empty token pipe");
-    return pipe->tokens[pipe->nDelivered];
+    return pipe->ptr[pipe->nDelivered];
 
 }
 
@@ -44,14 +45,19 @@ struct token tokenPipePop(struct tokenPipe* pipe) {
     if (pipe->nAvailable <= 0) Error("tried to pop from empty token pipe");
     pipe->nDelivered++;
     pipe->nAvailable--;
-    return pipe->tokens[pipe->nDelivered -1];
+    return pipe->ptr[pipe->nDelivered -1];
 }
 
 
-void tokenPipeUnpop(struct tokenPipe* pipe, struct token tok) {
+void tokenPipeRestart(struct tokenPipe* pipe) {
+    pipe->nAvailable += pipe->nDelivered;
+    pipe->nDelivered = 0;
+}
+
+
+void tokenPipeUnpop(struct tokenPipe* pipe) {
     if (pipe->nDelivered <= 0) Error("tried to unpop to pipe with no deliveries");
     pipe->nDelivered--;
-    pipe->tokens[pipe->nDelivered] = tok;
     pipe->nAvailable++;
 }
 
@@ -102,13 +108,13 @@ bool IsIdentifier(char c) {
 
 
 void ParseIdentifier(struct tokenContext* tc, int* col) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    struct str line = StrListGetLast(tc->lines);
     while (IsIdentifier(StrGetChar(line, *col))) (*col)++;
 }
 
 
 enum tokenType ParseNumber(struct tokenContext* tc, int* col) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    struct str line = StrListGetLast(tc->lines);
     int nDots = 0;
     while (IsDigit(StrGetChar(line, *col)) || StrGetChar(line, *col) == '.') {
         if (StrGetChar(line, *col) == '.') {
@@ -137,7 +143,7 @@ static bool IsEscapeChar(char c, bool inString) {
 
 
 static void ParseChar(struct tokenContext* tc, int* col, bool inStr) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    struct str line = StrListGetLast(tc->lines);
     char c = StrGetChar(line, *col);
     if (c == '\n') SyntaxErrorInvalidChar(tc, *col, NULL);
     if (c == '\\') {
@@ -151,7 +157,7 @@ static void ParseChar(struct tokenContext* tc, int* col, bool inStr) {
 
 
 void ParseCharConstant(struct tokenContext* tc, int* col) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    struct str line = StrListGetLast(tc->lines);
     if (StrGetChar(line, *col) == '\'') SyntaxErrorInvalidChar(tc, *col,
             "character constants may not be empty");
     ParseChar(tc, col, false);
@@ -162,7 +168,7 @@ void ParseCharConstant(struct tokenContext* tc, int* col) {
 
 
 void ParseStringConstant(struct tokenContext* tc, int* col) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    struct str line = StrListGetLast(tc->lines);
     char c;
     while ((c = StrGetChar(line, *col)) != '"') {
         ParseChar(tc, col, true);
@@ -172,7 +178,7 @@ void ParseStringConstant(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParseEqualSign(struct tokenContext* tc, int* col) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    struct str line = StrListGetLast(tc->lines);
     if (StrGetChar(line, *col) == '=') {
         (*col)++;
         return TOKEN_LOGICAL_EQUALS;
@@ -182,7 +188,7 @@ enum tokenType ParseEqualSign(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParseAmpersand(struct tokenContext* tc, int* col) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    struct str line = StrListGetLast(tc->lines);
     if (StrGetChar(line, *col) == '&') {
         (*col)++;
         return TOKEN_LOGICAL_AND;
@@ -192,7 +198,7 @@ enum tokenType ParseAmpersand(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParsePipe(struct tokenContext* tc, int* col) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    struct str line = StrListGetLast(tc->lines);
     if (StrGetChar(line, *col) == '|') {
         (*col)++;
         return TOKEN_LOGICAL_OR;
@@ -202,7 +208,7 @@ enum tokenType ParsePipe(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParseLessThan(struct tokenContext* tc, int* col) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    struct str line = StrListGetLast(tc->lines);
     char c = StrGetChar(line, *col);
     if (c == '<') {
         (*col)++;
@@ -217,7 +223,7 @@ enum tokenType ParseLessThan(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParseGreaterThan(struct tokenContext* tc, int* col) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    struct str line = StrListGetLast(tc->lines);
     char c = StrGetChar(line, *col);
     if (c == '>') {
         (*col)++;
@@ -232,7 +238,7 @@ enum tokenType ParseGreaterThan(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParsePlusSign(struct tokenContext* tc, int* col) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    struct str line = StrListGetLast(tc->lines);
     char c = StrGetChar(line, *col);
     if (c == '+') {
         (*col)++;
@@ -247,7 +253,7 @@ enum tokenType ParsePlusSign(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParseHyphen(struct tokenContext* tc, int* col) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    struct str line = StrListGetLast(tc->lines);
     char c = StrGetChar(line, *col);
     if (c == '-') {
         (*col)++;
@@ -262,7 +268,7 @@ enum tokenType ParseHyphen(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParseAsterisk(struct tokenContext* tc, int* col) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    struct str line = StrListGetLast(tc->lines);
     if (StrGetChar(line, *col) == '=') {
         (*col)++;
         return TOKEN_ASSIGNMENT_MUL;
@@ -272,7 +278,7 @@ enum tokenType ParseAsterisk(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParseForwardSlash(struct tokenContext* tc, int* col) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    struct str line = StrListGetLast(tc->lines);
     if (StrGetChar(line, *col) == '=') {
         (*col)++;
         return TOKEN_ASSIGNMENT_DIV;
@@ -282,7 +288,7 @@ enum tokenType ParseForwardSlash(struct tokenContext* tc, int* col) {
 
 
 enum tokenType ParsePercentSign(struct tokenContext* tc, int* col) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    struct str line = StrListGetLast(tc->lines);
     if (StrGetChar(line, *col) == '=') {
         (*col)++;
         return TOKEN_ASSIGNMENT_MODULO;
@@ -292,7 +298,7 @@ enum tokenType ParsePercentSign(struct tokenContext* tc, int* col) {
 
 
 void ParseTokenSwitch(struct tokenContext* tc, struct token* tok, int* col) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    struct str line = StrListGetLast(tc->lines);
     char c = line.ptr[*col];
     (*col)++;
 
@@ -351,12 +357,12 @@ static void SpecifyIdentifier(struct token* tok) {
 
 
 struct token ParseToken(struct tokenContext* tc, int* col) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    struct str line = StrListGetLast(tc->lines);
     FindTokenStart(line, col);
 
     struct token tok;
     int colStart = *col;
-    tok.lineNr = tc->lines.nStrs;
+    tok.lineNr = StrListLen(tc->lines);
     tok.str = StrSlice(line, *col, *col);
     tok.context = tc;
 
@@ -387,7 +393,7 @@ struct str ReadLine(FILE* fp, bool* eof) {
 struct token TokenEOF(struct tokenContext* tc) {
     struct token tok;
     tok.type = TOKEN_EOF;
-    tok.lineNr = tc->lines.nStrs;
+    tok.lineNr = StrListLen(tc->lines);
     tok.str = StrNew();
     tok.context = tc;
     return tok;
@@ -402,7 +408,7 @@ bool IsValidChar(char c) {
 
 
 void ValidateLatestLine(struct tokenContext* tc) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
+    struct str line = StrListGetLast(tc->lines);
     for (int i = 0; i < line.len -1; i++) {
         if (!IsValidChar(StrGetChar(line, i))) SyntaxErrorInvalidChar(tc, i, NULL);
     }
@@ -415,7 +421,7 @@ void ParseLine(struct tokenContext* tc) {
     StrListAppend(&(tc->lines), line);
     ValidateLatestLine(tc);
 
-    int col= 0;
+    int col = 0;
     while(col < StrGetLen(line)) {
         tokenPipePush(&(tc->tokens), ParseToken(tc, &col));
     }
@@ -443,7 +449,7 @@ struct token TokenNext(struct tokenContext* tc) {
 void TokenDiscardNewlines(struct tokenContext* tc) {
     struct token tok;
     while((tok = TokenNext(tc)).type == TOKEN_NEWLINE);
-    tokenPipeUnpop(&(tc->tokens), tok);
+    tokenPipeUnpop(&(tc->tokens));
 }
 
 
@@ -454,6 +460,11 @@ struct token TokenNextDiscardNewlines(struct tokenContext* tc) {
 }
 
 
-void TokenUnget(struct tokenContext* tc, struct token tok) {
-    tokenPipeUnpop(&(tc->tokens), tok);
+void TokenUnget(struct tokenContext* tc) {
+    tokenPipeUnpop(&(tc->tokens));
+}
+
+
+void TokenRestart(struct tokenContext* tc) {
+    tokenPipeRestart(&(tc->tokens));
 }

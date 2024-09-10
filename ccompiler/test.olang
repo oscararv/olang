@@ -1,20 +1,25 @@
 #this is a comment
-type iff int32 
 
 
-type MyStructInst struct {
-    i int32
+type MyInt int32
+
+
+type MyStr struct {
+    mB bool
 }
 
-
-type MyStructture struct {
-    myInt int32[],
-    myStruct MyStructInst,
+type MyStructure struct {
+#    autoRef MyStructure
+    myInt MyInt[],
     myInt2 int32[2],
-    myStr MyStructInst{int32{2 3} 2} 2 3},
+    ref MyStr,
+    inst MyStr{}
 }
 
 
 type MyVocab vocab {
-    I, THEM, YOU, WILL, ME, HOW, ARE, THEY
+    I, AM, Test
 }
+
+
+type MyFunc func(int32, MyStructure{})(int32, MyInt, MyStructure{})

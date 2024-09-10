@@ -22,10 +22,11 @@ enum baseType {
     BASETYPE_FUNC
 };
 
+
 struct type {
     enum baseType bType;
     struct str name;
-    void* advanced;
+    void* advanced; //advanced part of the type may be updated during the compilation
 };
 
 

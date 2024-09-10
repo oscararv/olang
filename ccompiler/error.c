@@ -67,8 +67,8 @@ static void SyntaxErrorLine(int lineNr, struct str line, int colStart, int colEn
 
 //reason may be NULL
 void SyntaxErrorInvalidChar(struct tokenContext* tc, int col, char* reason) {
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
-    SyntaxErrorBase(tc->lines.nStrs, tc->fileName);
+    struct str line = StrListGet(tc->lines, StrListLen(tc->lines) -1);
+    SyntaxErrorBase(StrListLen(tc->lines), tc->fileName);
     fputs(COLOR_YELLOW, stdout);
     fputs("\"", stdout);
     PrintChar(StrGetChar(line, col));
@@ -78,7 +78,7 @@ void SyntaxErrorInvalidChar(struct tokenContext* tc, int col, char* reason) {
         fputs(reason, stdout);
     }
     puts(COLOR_RESET);
-    SyntaxErrorLine(tc->lines.nStrs, line, col, col);
+    SyntaxErrorLine(StrListLen(tc->lines), line, col, col);
     exit(EXIT_FAILURE);
 }
 
@@ -86,18 +86,25 @@ void SyntaxErrorInvalidChar(struct tokenContext* tc, int col, char* reason) {
 //reason may be NULL
 void SyntaxErrorInvalidToken(struct token tok, char* reason) {
     struct tokenContext* tc = tok.context;
-    struct str line = tc->lines.strs[tc->lines.nStrs -1];
-    SyntaxErrorBase(tc->lines.nStrs, tc->fileName);
+    struct str line = StrListGet(tc->lines, tok.lineNr -1);
+    SyntaxErrorBase(tok.lineNr, tc->fileName);
     fputs(COLOR_YELLOW, stdout);
-    fputs("\"", stdout);
-    PrintStr(tok.str);
-    fputs("\"", stdout);
+    if (tok.type == TOKEN_EOF) {
+        fputs("unexpected end of file", stdout);
+    }
+    else {
+        fputs("\"", stdout);
+        PrintStr(tok.str);
+        fputs("\"", stdout);
+    }
     if (reason) {
         fputs(" ", stdout);
         fputs(reason, stdout);
     }
     puts(COLOR_RESET);
-    int colStart = StrGetSubStrIndex(line, tok.str);
-    SyntaxErrorLine(tc->lines.nStrs, line, colStart, colStart + StrGetLen(tok.str) -1);
+    if (tok.type != TOKEN_EOF) {
+        int colStart = StrGetSliceStrIndex(line, tok.str);
+        SyntaxErrorLine(tok.lineNr, line, colStart, colStart + StrGetLen(tok.str) -1);
+    }
     exit(EXIT_FAILURE);
 }
