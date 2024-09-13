@@ -27,6 +27,8 @@ struct type {
     enum baseType bType;
     struct str name;
     void* advanced; //advanced part of the type may be updated during the compilation
+    bool ref; //arrays and structs can be references
+    struct token tok; //token associated with the type instance; concatenated if eligible
 };
 
 
@@ -62,6 +64,7 @@ struct operand {
 
 
 struct operandList {
+    bool isSlice;
     int len;
     int cap;
     struct operand* ptr;
@@ -70,6 +73,7 @@ struct operandList {
 
 struct structTypeData {
     struct operandList members;
+    struct typeList embeddedStructs;
 };
 
 

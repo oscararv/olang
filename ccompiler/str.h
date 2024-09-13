@@ -36,5 +36,6 @@ struct str StrListGetLast(struct strList sl);
 int StrListLen(struct strList sl);
 bool StrEqual(struct str a, struct str b);
 bool StrEqualCharArray(struct str str, char* ca);
+struct str StrGetContainsBoth(struct str a, struct str b);
 
 #endif //STR_H

@@ -94,5 +94,6 @@ void TokenDiscardNewlines(struct tokenContext* tc);
 struct token TokenNextDiscardNewlines(struct tokenContext* tc);
 void TokenUnget(struct tokenContext* tc);
 void TokenRestart(struct tokenContext* tc);
+struct token TokenAppendTok(struct token base, struct token appendix); //assumes the tokens exist on the same line
 
 #endif //TOKEN_H

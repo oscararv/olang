@@ -132,3 +132,14 @@ bool StrEqualCharArray(struct str str, char* ca) {
     }
     return true;
 }
+
+
+//assumes a is followed by b in memory
+struct str StrGetContainsBoth(struct str a, struct str b) {
+    struct str ret;
+    ret.isSlice = true;
+    ret.len = b.ptr - a.ptr + b.len;
+    ret.cap = ret.len;
+    ret.ptr = a.ptr;
+    return ret;
+}

@@ -4,16 +4,16 @@
 type MyInt int32
 
 
-type MyStr struct {
-    mB bool
+type MyStructure struct {
+    self MyStructure,
+    mst MST2{},
+    myInt MyInt[],
+    myInt2 int32[2]
 }
 
-type MyStructure struct {
-#    autoRef MyStructure
-    myInt MyInt[],
-    myInt2 int32[2],
-    ref MyStr,
-    inst MyStr{}
+
+type MST2 struct {
+    myStr MyStructure
 }
 
 
@@ -22,4 +22,4 @@ type MyVocab vocab {
 }
 
 
-type MyFunc func(int32, MyStructure{})(int32, MyInt, MyStructure{})
+type MyFunc func(int32[2], MyStructure{})(int32[3], MyInt, MyStructure{})
