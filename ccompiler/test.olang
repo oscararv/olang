@@ -22,4 +22,4 @@ type MyVocab vocab {
 }
 
 
-type MyFunc func(int32[2], MyStructure{})(int32[3], MyInt, MyStructure{})
+type MyFunc func(int32[], MyStructure{})(int32[3], MyInt, MyStructure{})

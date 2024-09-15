@@ -470,12 +470,12 @@ void TokenRestart(struct tokenContext* tc) {
 }
 
 
-struct token TokenAppendTok(struct token base, struct token appendix) { //assumes the tokens exist on the same line
-    if (base.lineNr != appendix.lineNr) Error("concatenated tokens exist on different lines");
+struct token TokenExtend(struct token base, struct token tail) { //assumes the tokens exist on the same line
+    if (base.lineNr != tail.lineNr) Error("base and tail tokens exist on different lines");
     struct token ret;
     ret.type = base.type;
     ret.lineNr = base.lineNr;
-    ret.str = StrGetContainsBoth(base.str, appendix.str);
+    ret.str = StrGetContainsBoth(base.str, tail.str);
     ret.context = base.context;
     return ret;
 }

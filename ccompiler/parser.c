@@ -310,7 +310,6 @@ static bool TryParseToken(struct parserContext* pc, struct token* tok,
 }
 
 
-
 static void ForceParseToken(struct parserContext* pc, struct token* tok,
         enum tokenType type, bool discardNewlines) {
 
@@ -324,6 +323,22 @@ static void ForceParseToken(struct parserContext* pc, struct token* tok,
 }
 
 
+static bool TryParseIntConstant(struct parserContext* pc, int* intConst, bool discardNewlines) {
+    struct token tok;
+    if (TryParseToken(pc, &tok, TOKEN_INT, discardNewlines)) {
+        //TODO atoi the int and set instConst to it
+        (void)intConst;
+        return true;
+    }
+    else if (TryParseToken(pc, &tok, TOKEN_IDENTIFIER, discardNewlines)) {
+        //TODO fetch int constant from constant list
+        (void)intConst;
+        return true;
+    }
+    return false;
+}
+
+
 struct type ParseType(struct parserContext* pc) {
     struct token tok;
     ForceParseToken(pc, &tok, TOKEN_IDENTIFIER, false);
@@ -331,26 +346,19 @@ struct type ParseType(struct parserContext* pc) {
     if (!GetType(tok.str, &t, pc)) SyntaxErrorInvalidToken(tok, "unknown type");
     t.tok = tok;
     if (TryParseToken(pc, &tok, TOKEN_SQUAREBRACKET_OPEN, false)) {
-        t.tok = TokenAppendTok(t.tok, tok);
-        struct type arrT;
-        if (TryParseToken(pc, &tok, TOKEN_INT, false)) {
-            arrT = ArrType(t, 0, true);
-            t.tok = TokenAppendTok(t.tok, tok);
-        }
-        else if (TryParseToken(pc, &tok, TOKEN_IDENTIFIER, false)) {
-            arrT = ArrType(t, 0, true);
-            t.tok = TokenAppendTok(t.tok, tok);
-        }
-        else arrT = ArrType(t, 0, false);
+        int arrLen = 0;
+        bool ref = true;
+        if (TryParseIntConstant(pc, &arrLen, false)) ref = false;
         ForceParseToken(pc, &tok, TOKEN_SQUAREBRACKET_CLOSE, false);
-        t.tok = TokenAppendTok(t.tok, tok);
+        struct type arrT = ArrType(t, arrLen, ref);
+        arrT.tok = t.tok;
+        arrT.tok = TokenExtend(arrT.tok, tok);
         return arrT;
     }
     else if (t.bType == BASETYPE_STRUCT && TryParseToken(pc, &tok, TOKEN_CURLYBRACKET_OPEN, false)) {
         t.ref = false;
-        t.tok = TokenAppendTok(t.tok, tok);
         ForceParseToken(pc, &tok, TOKEN_CURLYBRACKET_CLOSE, false);
-        t.tok = TokenAppendTok(t.tok, tok);
+        t.tok = TokenExtend(t.tok, tok);
     }
     return t;
 }
@@ -424,7 +432,34 @@ struct type ParseVocabTypedef(struct parserContext* pc) {
 }
 
 
-struct typeList ParseFuncTypedefArgOrRet(struct parserContext* pc) {
+struct type ParseFuncTypedefArgType(struct parserContext* pc) {
+    struct type t = ParseType(pc);
+    if (t.bType == BASETYPE_ARRAY && !t.ref) {
+        SyntaxErrorInvalidToken(t.tok, "function argument of type array must be a reference");
+    }
+    return t;
+}
+
+
+struct typeList ParseFuncTypedefArgs(struct parserContext* pc) {
+    struct typeList list = TypeListNew();
+    struct token tok;
+
+    ForceParseToken(pc, &tok, TOKEN_PAREN_OPEN, true);
+    if (TryParseToken(pc, &tok, TOKEN_PAREN_CLOSE, true)) return list;
+    TypeListAppend(&list, ParseFuncTypedefArgType(pc));
+
+    while (TryParseToken(pc, &tok, TOKEN_COMMA, false)) {
+        TokenDiscardNewlines(&(pc->tc));
+        TypeListAppend(&list, ParseFuncTypedefArgType(pc));
+    }
+
+    ForceParseToken(pc, &tok, TOKEN_PAREN_CLOSE, true);
+    return list;
+}
+
+
+struct typeList ParseFuncTypedefRets(struct parserContext* pc) {
     struct typeList list = TypeListNew();
     struct token tok;
 
@@ -443,8 +478,8 @@ struct typeList ParseFuncTypedefArgOrRet(struct parserContext* pc) {
 
 
 struct type ParseFuncTypedef(struct parserContext* pc) {
-    struct typeList args = ParseFuncTypedefArgOrRet(pc);
-    struct typeList rets = ParseFuncTypedefArgOrRet(pc);
+    struct typeList args = ParseFuncTypedefArgs(pc);
+    struct typeList rets = ParseFuncTypedefRets(pc);
     return FuncType(args, rets);
 }
 
@@ -490,11 +525,11 @@ struct parserContext parserContextNew(char* fileName) {
 }
 
 
-static struct type TypePlaceholder(struct token name, enum baseType btype) {
+static struct type TypePlaceholder(struct token name, enum baseType bType) {
     struct type t;
     t.ref = true;
     t.name = name.str;
-    t.bType = btype;
+    t.bType = bType;
     t.advanced = NULL;
     t.tok = name;
     return t;
