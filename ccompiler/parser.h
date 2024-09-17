@@ -19,7 +19,11 @@ enum baseType {
     BASETYPE_ARRAY,
     BASETYPE_STRUCT,
     BASETYPE_VOCAB,
-    BASETYPE_FUNC
+    BASETYPE_FUNC,
+    BASETYPE_INT, //constant type
+    BASETYPE_FLOAT, //constant type
+    BASETYPE_CHAR, //constant type
+    BASETYPE_STRING //constant type
 };
 
 
@@ -28,6 +32,7 @@ struct type {
     struct str name;
     void* advanced; //advanced part of the type may be updated during the compilation
     bool ref; //arrays and structs can be references
+    bool mut; //arrays and structs can be mutable or as function arguments
     struct token tok; //token associated with the type instance; concatenated if eligible
 };
 
@@ -56,13 +61,6 @@ struct funcTypeData {
 };
 
 
-struct operand {
-    struct str name;
-    struct type type;
-    char* value;
-};
-
-
 struct operandList {
     bool isSlice;
     int len;
@@ -71,9 +69,27 @@ struct operandList {
 };
 
 
+
 struct structTypeData {
     struct operandList members;
     struct typeList embeddedStructs;
+};
+
+
+union operandValue {
+    long long int intVal;
+    double floatVal;
+    struct str stringVal;
+};
+
+
+struct operand {
+    struct str name;
+    struct type type;
+    bool init;
+    union operandValue value;
+    struct operandList args; //only used with function operands;
+    struct typeList rets; //only used with function operands;
 };
 
 
@@ -81,6 +97,8 @@ struct parserContext {
     struct tokenContext tc;
     struct typeList publTypes;
     struct typeList privTypes;
+    struct operandList publOps;
+    struct operandList privOps;
 };
 
 void ParseFile(char* fileName);

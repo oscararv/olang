@@ -1,19 +1,19 @@
 #this is a comment
 
 
-type MyInt int32
+type myInt int32
 
 
 type MyStructure struct {
     self MyStructure,
-    mst MST2{},
-    myInt MyInt[],
+    mst MST2,
+    myInt myInt[],
     myInt2 int32[2]
 }
 
 
 type MST2 struct {
-    myStr MyStructure
+    myStr MyStructure{}
 }
 
 
@@ -22,4 +22,6 @@ type MyVocab vocab {
 }
 
 
-type MyFunc func(int32[], MyStructure{})(int32[3], MyInt, MyStructure{})
+type MyFunc func(int32[], MyStructure)(int32[23], myInt, MyStructure{})
+
+func ThisIsFunc(in mut int32[], i bool[], in2 mut MyStructure)(float32, int32)

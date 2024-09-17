@@ -345,7 +345,6 @@ static void SpecifyIdentifier(struct token* tok) {
     else if (StrEqualCharArray(tok->str, "else")) tok->type = TOKEN_ELSE;
     else if (StrEqualCharArray(tok->str, "for")) tok->type = TOKEN_FOR;
     else if (StrEqualCharArray(tok->str, "defer")) tok->type = TOKEN_DEFER;
-    else if (StrEqualCharArray(tok->str, "switch")) tok->type = TOKEN_SWITCH;
     else if (StrEqualCharArray(tok->str, "return")) tok->type = TOKEN_RETURN;
     else if (StrEqualCharArray(tok->str, "break")) tok->type = TOKEN_BREAK;
     else if (StrEqualCharArray(tok->str, "match")) tok->type = TOKEN_MATCH;
@@ -353,6 +352,7 @@ static void SpecifyIdentifier(struct token* tok) {
     else if (StrEqualCharArray(tok->str, "struct")) tok->type = TOKEN_STRUCT;
     else if (StrEqualCharArray(tok->str, "vocab")) tok->type = TOKEN_VOCAB;
     else if (StrEqualCharArray(tok->str, "func")) tok->type = TOKEN_FUNC;
+    else if (StrEqualCharArray(tok->str, "mut")) tok->type = TOKEN_MUT;
 }
 
 
@@ -478,4 +478,68 @@ struct token TokenExtend(struct token base, struct token tail) { //assumes the t
     ret.str = StrGetContainsBoth(base.str, tail.str);
     ret.context = base.context;
     return ret;
+}
+
+
+char* TokenTypeToString(enum tokenType t) {
+    switch(t) {
+        case TOKEN_EOF: return "end of file";
+        case TOKEN_NEWLINE: return "newline";
+        case TOKEN_INT: return "integer constant";
+        case TOKEN_FLOAT: return "float constant";
+        case TOKEN_CHAR: return "character constant";
+        case TOKEN_STRING: return "string constant";
+        case TOKEN_IDENTIFIER: return "identifier";
+        case TOKEN_IMPORT: return "import";
+        case TOKEN_TYPE: return "type";;
+        case TOKEN_IF: return "if";
+        case TOKEN_ELSE: return "else";
+        case TOKEN_FOR: return "for";
+        case TOKEN_DEFER: return "defer";;
+        case TOKEN_RETURN: return "return";
+        case TOKEN_BREAK: return "break";
+        case TOKEN_MATCH: return "break";
+        case TOKEN_CASE: return "case";;
+        case TOKEN_STRUCT: return "struct";
+        case TOKEN_VOCAB: return "vocab";
+        case TOKEN_FUNC: return "func";
+        case TOKEN_DOT: return ".";;
+        case TOKEN_COMMA: return ",";
+        case TOKEN_PAREN_OPEN: return "(";
+        case TOKEN_PAREN_CLOSE: return ")";
+        case TOKEN_SQUAREBRACKET_OPEN: return "[";;
+        case TOKEN_SQUAREBRACKET_CLOSE: return "]";
+        case TOKEN_CURLYBRACKET_OPEN: return "{";
+        case TOKEN_CURLYBRACKET_CLOSE: return "}";
+        case TOKEN_ASSIGNMENT: return "=";
+        case TOKEN_ASSIGNMENT_ADD: return "+=";
+        case TOKEN_ASSIGNMENT_SUB: return "-=";
+        case TOKEN_ASSIGNMENT_MUL: return "*=";
+        case TOKEN_ASSIGNMENT_DIV: return "/=";
+        case TOKEN_ASSIGNMENT_MODULO: return "%=";
+        case TOKEN_LOGICAL_EQUALS: return "==";
+        case TOKEN_LOGICAL_NOT: return "==";
+        case TOKEN_LOGICAL_AND: return "&&";
+        case TOKEN_LOGICAL_OR: return "||";
+        case TOKEN_LOGICAL_LESS_THAN: return "<";
+        case TOKEN_LOGICAL_LESS_THAN_OR_EQUAL: return "<=";
+        case TOKEN_LOGICAL_GREATER_THAN: return ">";
+        case TOKEN_LOGICAL_GREATER_THAN_OR_EQUAL: return ">=";
+        case TOKEN_BITWISE_AND: return "&";
+        case TOKEN_BITWISE_OR: return "|";
+        case TOKEN_BITWISE_XOR: return "^";
+        case TOKEN_BITWISE_COMPLEMENT: return "~";
+        case TOKEN_BITSHIFT_LEFT: return "<<";
+        case TOKEN_BITSHIFT_RIGHT: return ">>";
+        case TOKEN_ADD: return "+";
+        case TOKEN_SUB: return "-";
+        case TOKEN_MUL: return "*";
+        case TOKEN_DIV: return "/";
+        case TOKEN_MODULO: return "%";
+        case TOKEN_INCREMENT: return "++";
+        case TOKEN_DECREMENT: return "--";
+        case TOKEN_MUT: return "mut";
+    }
+    Error("invalid token type");
+    exit(EXIT_FAILURE);
 }

@@ -17,7 +17,6 @@ enum tokenType {
     TOKEN_ELSE,
     TOKEN_FOR,
     TOKEN_DEFER,
-    TOKEN_SWITCH,
     TOKEN_RETURN,
     TOKEN_BREAK,
     TOKEN_MATCH,
@@ -59,7 +58,8 @@ enum tokenType {
     TOKEN_DIV,
     TOKEN_MODULO,
     TOKEN_INCREMENT,
-    TOKEN_DECREMENT
+    TOKEN_DECREMENT,
+    TOKEN_MUT
 };
 
 
@@ -95,5 +95,6 @@ struct token TokenNextDiscardNewlines(struct tokenContext* tc);
 void TokenUnget(struct tokenContext* tc);
 void TokenRestart(struct tokenContext* tc);
 struct token TokenExtend(struct token base, struct token tail); //assumes the tokens exist on the same line
+char* TokenTypeToString(enum tokenType t);
 
 #endif //TOKEN_H
