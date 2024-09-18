@@ -451,25 +451,29 @@ struct type ParseVocabTypedef(struct parserContext* pc) {
 }
 
 
+struct type ParseTypeNoInstantiation(struct parserContext* pc) {
+    struct type t = ParseType(pc);
+    if (t.bType == BASETYPE_ARRAY && !t.ref) {
+        SyntaxErrorInvalidToken(t.tok, "array must be a reference");
+    }
+    else if (t.bType == BASETYPE_STRUCT && !t.ref) {
+        SyntaxErrorInvalidToken(t.tok, "struct must be a reference");
+    }
+    return t;
+}
+
+
 struct type ParseFuncArgType(struct parserContext* pc) {
     bool mut = false;
     struct token tok;
     if (TryParseToken(pc, &tok, TOKEN_MUT, false)) mut = true;
-    struct type t = ParseType(pc);
-    if (t.bType == BASETYPE_ARRAY && !t.ref) {
-        SyntaxErrorInvalidToken(t.tok, "function argument arrays must be references");
-    }
-    else if (t.bType == BASETYPE_STRUCT && !t.ref) {
-        SyntaxErrorInvalidToken(t.tok, "function argument structs must be references");
-    }
-
+    struct type t = ParseTypeNoInstantiation(pc);
     if (mut) {
         TypeSetMutTrue(&t);
         if (t.bType != BASETYPE_ARRAY && t.bType != BASETYPE_STRUCT) {
             SyntaxErrorInvalidToken(t.tok, "only arrays or structures may be declared mutable in function args");
         }
     }
-
     return t;
 }
 
@@ -539,11 +543,73 @@ void ParseTypedef(struct parserContext* pc) {
 }
 
 
-void ParseGlobalLevel(struct parserContext* pc) {
+struct parserContextList parserContextListNew() {
+    struct parserContextList pcl;
+    pcl.len = 0;
+    pcl.cap = 0;
+    pcl.ptr = NULL;
+    return pcl;
+}
+
+
+void parserContextListAppend(struct parserContextList* pcl, struct parserContext pc) {
+    if (pcl->len >= pcl->cap)  {
+        pcl->cap+=100;
+        pcl->ptr = realloc(pcl->ptr, sizeof(struct parserContext) * pcl->cap);
+        CheckPtr(pcl->ptr);
+    }
+    pcl->ptr[pcl->len] = pc;
+    pcl->len++;
+}
+
+
+bool parserContextListExistsFileName(struct parserContextList* pcl, struct str fileName) {
+    for (int i = 0; i < pcl->len; i++) {
+        if (StrEqual(pcl->ptr[i].fileName, fileName)) return true;
+    }
+    return false;
+}
+
+
+struct parserContext parserContextListGetByFileName(struct parserContextList* pcl, struct str fileName) {
+    for (int i = 0; i < pcl->len; i++) {
+        if (StrEqual(pcl->ptr[i].fileName, fileName)) return pcl->ptr[i];
+    }
+    Error("invalid file name");
+    exit(EXIT_FAILURE); //unreachable
+}
+
+
+struct parserContext ParseFile(struct str fileName, struct parserContextList* pcl);
+
+
+void ParseImport(struct parserContext* pc, struct parserContextList* parsed) {
+    struct token nameTok;
+    struct token aliasTok;
+    ForceParseToken(pc, &nameTok, TOKEN_STRING, false, "expected import file name string");
+    struct str name = StrSlice(nameTok.str, 1, StrGetLen(nameTok.str) -1);
+    if (parserContextListExistsFileName(&(pc->imports), name)) {
+        SyntaxErrorInvalidToken(nameTok, "file already imported");
+    }
+    ForceParseToken(pc, &aliasTok, TOKEN_IDENTIFIER, false, "expected import alias");
+    if (StrListExists(&(pc->importAliases), aliasTok.str)) {
+        SyntaxErrorInvalidToken(aliasTok, "file alias already in use");
+    }
+    if (!parserContextListExistsFileName(parsed, name)) {
+        struct parserContext importPc = ParseFile(name, parsed);
+        parserContextListAppend(parsed, importPc);
+    }
+    parserContextListAppend(&(pc->imports), parserContextListGetByFileName(parsed, name));
+    StrListAppend(&(pc->importAliases), aliasTok.str);
+}
+
+
+void ParseGlobalLevel(struct parserContext* pc, struct parserContextList* parsed) {
     struct token tok = TokenNextDiscardNewlines(&(pc->tc));
     switch (tok.type) {
         case TOKEN_TYPE: ParseTypedef(pc); break; //typedefs are reparsed; this is defined behaviour
         case TOKEN_FUNC: break; //func headers are reparsed; this is defined behaviour
+        case TOKEN_IMPORT: ParseImport(pc, parsed); break;
         default: //SyntaxErrorInvalidToken(tok, NULL); 
     }
 }
@@ -569,12 +635,9 @@ void ParseTypePlaceholders(struct parserContext* pc) {
             tok = TokenNext(&(pc->tc));
             switch (tok.type) {
                 case TOKEN_IDENTIFIER:
-                    if (TryParseToken(pc, &tok, TOKEN_SQUAREBRACKET_OPEN, false)) {
-                        AddType(TypePlaceholder(nameTok, BASETYPE_ARRAY), pc);
-                    }
-                    struct type type;
-                    if (!GetType(tok.str, &type, pc)) SyntaxErrorInvalidToken(tok, "invalid type");
-                    else AddType(TypePlaceholder(nameTok, type.bType), pc);
+                    TokenUnget(&(pc->tc));
+                    struct type t = ParseTypeNoInstantiation(pc);
+                    AddType(TypePlaceholder(nameTok, t.bType), pc);
                     break;
 
                 case TOKEN_FUNC: AddType(TypePlaceholder(nameTok, BASETYPE_FUNC), pc); break;
@@ -671,8 +734,11 @@ void ParseCompleteTypesAndFuncHeaders(struct parserContext* pc) {
 }
 
 
-struct parserContext parserContextNew(char* fileName) {
+struct parserContext parserContextNew(struct str fileName) {
     struct parserContext pc;
+    pc.fileName = fileName;
+    pc.imports = parserContextListNew();
+    pc.importAliases = StrListNew();
     pc.tc = TokenContextNew(fileName);
     pc.publTypes = TypeListNew();
     pc.privTypes = TypeListNew();
@@ -683,7 +749,10 @@ struct parserContext parserContextNew(char* fileName) {
 }
 
 
-void ParseFile(char* fileName) {
+struct parserContext ParseFile(struct str fileName, struct parserContextList* parsed) {
+    fputs("parsing ", stdout);
+    StrPrint(fileName, stdout);
+    fputs("...\n", stdout);
     struct parserContext pc = parserContextNew(fileName);
     struct token tok;
     ParseTypePlaceholders(&pc);
@@ -691,6 +760,13 @@ void ParseFile(char* fileName) {
     ParseCompleteTypesAndFuncHeaders(&pc);
     TokenRestart(&(pc.tc));
     while (!TryParseToken(&pc, &tok, TOKEN_EOF, true)) {
-        ParseGlobalLevel(&pc);
+        ParseGlobalLevel(&pc, parsed);
     }
+    return pc;
+}
+
+
+void ParseMainFile(char* fileName) {
+    struct parserContextList parsed = parserContextListNew();
+    ParseFile(StrFromCharArray(fileName), &parsed);
 }

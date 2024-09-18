@@ -21,9 +21,11 @@ void CheckPtr(void* ptr) {
 }
 
 
-static void SyntaxErrorBase(int line, char* fileName) {
+static void SyntaxErrorBase(int line, struct str fileName) {
     printf(COLOR_GREEN "%d " COLOR_RESET, line);
-    printf(COLOR_CYAN "%s " COLOR_RESET, fileName);
+    fputs(COLOR_CYAN, stdout);
+    StrPrint(fileName, stdout);
+    fputs(" " COLOR_RESET, stdout);
     fputs(COLOR_RED "syntax error: " COLOR_RESET, stdout);
 }
 

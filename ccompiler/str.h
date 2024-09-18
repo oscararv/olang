@@ -23,7 +23,7 @@ struct strList {
 struct str StrNew();
 void StrAppend(struct str* str, char c);
 struct str StrFromCharArray(char* arr);
-struct str StrSlice(struct str orig, int start, int len);
+struct str StrSlice(struct str orig, int start, int stop);
 void StrSetLen(struct str* str, int len);
 int StrGetLen(struct str str);
 int StrGetSliceStrIndex(struct str a, struct str b);
@@ -37,5 +37,7 @@ int StrListLen(struct strList sl);
 bool StrEqual(struct str a, struct str b);
 bool StrEqualCharArray(struct str str, char* ca);
 struct str StrGetContainsBoth(struct str a, struct str b);
+void StrToCharArray(struct str s, char* arrLenSPlusOne);
+void StrPrint(struct str s, FILE* fp);
 
 #endif //STR_H

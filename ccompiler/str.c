@@ -37,11 +37,11 @@ struct str StrFromCharArray(char* arr) {
 }
 
 
-struct str StrSlice(struct str orig, int start, int len) {
-    if (len > orig.len) Error("string slice len is greater than original len");
+struct str StrSlice(struct str orig, int start, int stop) {
+    if (stop > orig.len) Error("string slice stop index is greater than original string len");
     struct str str;
     str.isSlice = true;
-    str.len = len - start;
+    str.len = stop - start;
     str.cap = str.len;
     str.ptr = orig.ptr + start;
     return str;
@@ -142,4 +142,19 @@ struct str StrGetContainsBoth(struct str a, struct str b) {
     ret.cap = ret.len;
     ret.ptr = a.ptr;
     return ret;
+}
+
+
+void StrToCharArray(struct str s, char* arrLenSPlusOne) {
+    arrLenSPlusOne[s.len] = '\0';
+    for (int i = 0; i < s.len; i++) {
+        arrLenSPlusOne[i] = s.ptr[i];
+    }
+}
+
+
+void StrPrint(struct str s, FILE* fp) {
+    char printArr[s.len +1];
+    StrToCharArray(s, printArr);
+    fputs(printArr, fp);
 }

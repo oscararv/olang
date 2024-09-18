@@ -62,13 +62,20 @@ void tokenPipeUnpop(struct tokenPipe* pipe) {
 }
 
 
-struct tokenContext TokenContextNew(char* fileName) {
+struct tokenContext TokenContextNew(struct str fileName) {
     struct tokenContext tc;
-    tc.fileName = strdup(fileName);
-    CheckPtr(tc.fileName);
+    tc.fileName = fileName;
 
-    tc.fp = fopen(fileName, "r");
-    CheckPtr(tc.fileName);
+    char charArrName[StrGetLen(fileName) +1];
+    StrToCharArray(fileName, charArrName);
+    tc.fp = fopen(charArrName, "r");
+    if (!tc.fp) {
+        char errorMsg[StrGetLen(fileName) + 100];
+        errorMsg[0] = '"';
+        StrToCharArray(fileName, errorMsg+1);
+        strcat(errorMsg, "\" could not be opened");
+        Error(errorMsg);
+    }
 
     tc.tokens = TokenPipeNew();
     tc.lines = StrListNew();

@@ -93,7 +93,17 @@ struct operand {
 };
 
 
+struct parserContextList {
+    int len;
+    int cap;
+    struct parserContext *ptr;
+};
+
+
 struct parserContext {
+    struct str fileName;
+    struct parserContextList imports;
+    struct strList importAliases;
     struct tokenContext tc;
     struct typeList publTypes;
     struct typeList privTypes;
@@ -101,6 +111,7 @@ struct parserContext {
     struct operandList privOps;
 };
 
-void ParseFile(char* fileName);
+
+void ParseMainFile(char* fileName);
 
 #endif //PARSER_H

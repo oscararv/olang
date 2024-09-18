@@ -1,20 +1,31 @@
 #this is a comment
 
+import "main.sdfs" main
 
 type myInt int32
 
 
 type MyStructure struct {
     self MyStructure,
-    mst MST2,
+    mst MST2{},
     myInt myInt[],
     myInt2 int32[2]
 }
 
 
 type MST2 struct {
-    myStr MyStructure{}
+    myStr MyStructure,
+    fun MyFunc
 }
+
+
+type retStatus vocab {
+    SUCCESS, FAILURE
+}
+
+func MyFunc(in int32)(retStatus)
+
+errorMsg const = "this is errorMsg" #const
 
 
 type MyVocab vocab {
@@ -22,6 +33,6 @@ type MyVocab vocab {
 }
 
 
-type MyFunc func(int32[], MyStructure)(int32[23], myInt, MyStructure{})
+type MyFunc func(int32[], mut MyStructure, int32)(int32[23], myInt, MyStructure{})
 
 func ThisIsFunc(in mut int32[], i bool[], in2 mut MyStructure)(float32, int32)

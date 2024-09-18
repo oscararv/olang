@@ -4,6 +4,6 @@
 
 
 int main() {
-    ParseFile("test.olang");
+    ParseMainFile("test.olang");
     return EXIT_SUCCESS;
 }
