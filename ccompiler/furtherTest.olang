@@ -1,0 +1,8 @@
+import "test.olang" test
+import "alsoTest.olang" tst
+
+type furtherStruct struct {
+    i int32,
+    mStr test.MyStructure{},
+    sdf tst.AlsoMyInt
+}

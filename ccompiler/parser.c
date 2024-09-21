@@ -352,18 +352,18 @@ static bool TryParseIntConstantExpr(struct parserContext* pc, int* intConst, boo
 }
 
 
-struct parserContext parserContextListGetByFileName(struct parserContextList pcl, struct str fileName) {
+struct parserContext* parserContextListGetByFileName(struct parserContextList pcl, struct str fileName) {
     for (int i = 0; i < pcl.len; i++) {
-        if (StrEqual(pcl.ptr[i].fileName, fileName)) return pcl.ptr[i];
+        if (StrEqual(pcl.ptr[i].fileName, fileName)) return pcl.ptr + i;
     }
     Error("invalid file name");
     exit(EXIT_FAILURE); //unreachable
 }
 
 
-struct parserContext parserContextListGetByIndex(struct parserContextList pcl, int index) {
+struct parserContext* parserContextListGetByIndex(struct parserContextList pcl, int index) {
     if (index < 0 || index >= pcl.len) Error("index out of bounds");
-    return pcl.ptr[index];
+    return pcl.ptr + index;
 }
 
 
@@ -380,7 +380,7 @@ static struct parserContext GetImportPc(struct parserContext head, struct str al
 
     for (int i = 0; i < StrListLen(head.importAliases); i++) {
         if (StrEqual(alias, StrListGet(head.importAliases, i))) {
-            return parserContextListGetByFileName(*(head.parsedFiles), StrListGet(head.importNames, i));
+            return *(parserContextListGetByFileName(*(head.parsedFiles), StrListGet(head.importNames, i)));
         }
     }
     Error("invalid alias");
@@ -637,24 +637,6 @@ bool parserContextListExistsFileName(struct parserContextList* pcl, struct str f
 }
 
 
-struct parserContext parserContextPlaceholder(struct str fileName) {
-    struct parserContext pc = {0};
-    pc.fileName = fileName;
-    return pc;
-}
-
-
-void parserContextListUpdate(struct parserContextList* pcl, struct parserContext fullPc) {
-    for (int i = 0; i < pcl->len; i++) {
-        if (StrEqual(pcl->ptr[i].fileName, fullPc.fileName)) {
-            pcl->ptr[i] = fullPc;
-            return;
-        }
-    }
-    Error("invalid fileName");
-}
-
-
 struct parserContext parserContextNew(struct str fileName, struct parserContextList* parsedFiles) {
     struct parserContext pc;
     pc.parsedFiles = parsedFiles;
@@ -666,6 +648,7 @@ struct parserContext parserContextNew(struct str fileName, struct parserContextL
     pc.privTypes = TypeListNew();
     pc.publOps = OperandListNew();
     pc.privOps = OperandListNew();
+    AppendBaseTypes(&(pc.privTypes));
     return pc;
 }
 
@@ -686,10 +669,9 @@ void ParseImportFirstPass(struct parserContext* pc) {
         SyntaxErrorInvalidToken(aliasTok, "file alias already in use");
     }
     if (!parserContextListExistsFileName(pc->parsedFiles, name)) {
-        parserContextListAppend(pc->parsedFiles, parserContextPlaceholder(name));
-        struct parserContext importPc = parserContextNew(name, pc->parsedFiles);
-        ParseFileFirstPass(&importPc);
-        parserContextListUpdate(pc->parsedFiles, importPc);
+        parserContextListAppend(pc->parsedFiles, parserContextNew(name, pc->parsedFiles));
+        struct parserContext* importPc = parserContextListGetByFileName(*(pc->parsedFiles), name);
+        ParseFileFirstPass(importPc);
     }
     StrListAppend(&(pc->importNames), name);
     StrListAppend(&(pc->importAliases), aliasTok.str);
@@ -860,11 +842,13 @@ void ParseFileThirdPass(struct parserContext* pc) {
 
 void ParseMainFile(char* fileName) {
     struct parserContextList parsedFiles = parserContextListNew();
-    parserContextListAppend(&parsedFiles, parserContextPlaceholder(StrFromCharArray(fileName)));
-    struct parserContext pc = parserContextNew(StrFromCharArray(fileName), &parsedFiles);
-    AppendBaseTypes(&(pc.privTypes));
-    ParseFileFirstPass(&pc);
-    ParseFileSecondPass(&pc);
-    ParseFileThirdPass(&pc);
-    parserContextListUpdate(&parsedFiles, pc);
+    parserContextListAppend(&parsedFiles, parserContextNew(StrFromCharArray(fileName), &parsedFiles));
+    struct parserContext* pc = parserContextListGetByFileName(parsedFiles, StrFromCharArray(fileName));
+    ParseFileFirstPass(pc);
+    for (int i = 0; i < parsedFiles.len; i++) {
+        ParseFileSecondPass(parserContextListGetByIndex(parsedFiles, i));
+    }
+    for (int i = 0; i < parsedFiles.len; i++) {
+        ParseFileThirdPass(parserContextListGetByIndex(parsedFiles, i));
+    }
 }
