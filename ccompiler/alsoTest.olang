@@ -1,0 +1,3 @@
+import "test.olang" tst
+type alsoMyInt int32
+type AlsoMyInt int32

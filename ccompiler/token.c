@@ -34,13 +34,6 @@ void tokenPipePush(struct tokenPipe* pipe, struct token tok) {
 }
 
 
-struct token tokenPipePeek(struct tokenPipe* pipe) {
-    if (pipe->nAvailable <= 0) Error("tried to peak into empty token pipe");
-    return pipe->ptr[pipe->nDelivered];
-
-}
-
-
 struct token tokenPipePop(struct tokenPipe* pipe) {
     if (pipe->nAvailable <= 0) Error("tried to pop from empty token pipe");
     pipe->nDelivered++;
@@ -340,7 +333,7 @@ void ParseTokenSwitch(struct tokenContext* tc, struct token* tok, int* col) {
         case '!': tok->type = TOKEN_LOGICAL_NOT; break;
         case '^': tok->type = TOKEN_BITWISE_XOR; break;
         case '~': tok->type = TOKEN_BITWISE_COMPLEMENT; break;
-        default: SyntaxErrorInvalidChar(tc, *col-1, NULL); break;
+        default: SyntaxErrorInvalidChar(tc, *col-1, "illegal character"); break;
     }
 }
 
@@ -417,7 +410,7 @@ bool IsValidChar(char c) {
 void ValidateLatestLine(struct tokenContext* tc) {
     struct str line = StrListGetLast(tc->lines);
     for (int i = 0; i < line.len -1; i++) {
-        if (!IsValidChar(StrGetChar(line, i))) SyntaxErrorInvalidChar(tc, i, NULL);
+        if (!IsValidChar(StrGetChar(line, i))) SyntaxErrorInvalidChar(tc, i, "illegal character");
     }
 }
 
@@ -435,12 +428,6 @@ void ParseLine(struct tokenContext* tc) {
     if (eof) {
         tokenPipePush(&(tc->tokens), TokenEOF(tc));
     }
-}
-
-
-struct token TokenPeek(struct tokenContext* tc) {
-    if (tokenPipeIsEmpty(&(tc->tokens))) ParseLine(tc);
-    return tokenPipePeek(&(tc->tokens));
 }
 
 

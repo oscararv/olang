@@ -101,8 +101,9 @@ struct parserContextList {
 
 
 struct parserContext {
+    struct parserContextList* parsedFiles; //reference to universal parsedFiles list held by all parser contexts
     struct str fileName;
-    struct parserContextList imports;
+    struct strList importNames;
     struct strList importAliases;
     struct tokenContext tc;
     struct typeList publTypes;

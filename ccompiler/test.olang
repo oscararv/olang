@@ -1,14 +1,15 @@
 #this is a comment
 
-import "main.sdfs" main
+import "alsoTest.olang" tst
 
-type myInt int32
+type myInt tst.AlsoMyInt
 
 
 type MyStructure struct {
     self MyStructure,
     mst MST2{},
     myInt myInt[],
+    alsoMyInt tst.AlsoMyInt[],
     myInt2 int32[2]
 }
 

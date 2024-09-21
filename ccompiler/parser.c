@@ -96,22 +96,16 @@ struct typeList TypeListNew() {
 }
 
 
-static bool typeListGet(struct typeList tl, struct str name, struct type* t) {
+static struct type typeListGet(struct typeList tl, struct str name) {
     for (int i = 0; i < tl.len; i++) {
         if (StrEqual(tl.ptr[i].name, name)) {
-            *t = tl.ptr[i];
-            return true;
+            return tl.ptr[i];
         }
     }
-    return false;
+    Error("invalid type name");
+    exit(EXIT_FAILURE); //unreachable
 }
 
-
-bool GetType(struct str name, struct type* t, struct parserContext* pc) {
-    if (typeListGet(pc->publTypes, name, t)) return true;
-    if (typeListGet(pc->privTypes, name, t)) return true;
-    return false;
-}
 
 
 static bool typeListExists(struct typeList tl, struct str name) {
@@ -134,7 +128,7 @@ bool ExistsType(struct str name, struct typeList publ, struct typeList priv) {
 void typeListUpdate(struct typeList* tl, struct type t) {
     for (int i = 0; i < tl->len; i++) {
         if (StrEqual(t.name, tl->ptr[i].name)) {
-            tl->ptr[i].advanced = t.advanced;
+            tl->ptr[i] = t;
             return;
         }
     }
@@ -284,23 +278,23 @@ void operandListAppend(struct operandList* ol, struct operand op) {
 }
 
 
-static bool operandListGet(struct operandList ol, struct str name, struct operand* op) {
+static struct operand operandListGet(struct operandList ol, struct str name) {
     for (int i = 0; i < ol.len; i++) {
         if (StrEqual(ol.ptr[i].name, name)) {
-            *op = ol.ptr[i];
-            return true;
+            return ol.ptr[i];
         }
     }
-    return false;
+    Error("invalid type name");
+    exit(EXIT_FAILURE); //unreachable
 }
 
 
-bool GetOperand(struct str name, struct operand* op, struct operandList publ,
-        struct operandList priv, struct operandList local) {
-    if (operandListGet(publ, name, op)) return true;
-    if (operandListGet(priv, name, op)) return true;
-    if (operandListGet(local, name, op)) return true;
-    return false;
+struct operand GetOperand(struct str name, struct operandList local, struct parserContext* pc) {
+    if (operandListExists(pc->publOps, name)) return operandListGet(pc->publOps, name);
+    if (operandListExists(pc->privOps, name)) return operandListGet(pc->privOps, name);
+    if (operandListExists(local, name)) return operandListGet(local, name);
+    Error("invalid operand name");
+    exit(EXIT_FAILURE); //unreachable
 }
 
 
@@ -358,12 +352,84 @@ static bool TryParseIntConstantExpr(struct parserContext* pc, int* intConst, boo
 }
 
 
-struct type ParseType(struct parserContext* pc) {
+struct parserContext parserContextListGetByFileName(struct parserContextList pcl, struct str fileName) {
+    for (int i = 0; i < pcl.len; i++) {
+        if (StrEqual(pcl.ptr[i].fileName, fileName)) return pcl.ptr[i];
+    }
+    Error("invalid file name");
+    exit(EXIT_FAILURE); //unreachable
+}
+
+
+struct parserContext parserContextListGetByIndex(struct parserContextList pcl, int index) {
+    if (index < 0 || index >= pcl.len) Error("index out of bounds");
+    return pcl.ptr[index];
+}
+
+
+
+static bool ImportAliasExists(struct strList importAliases, struct str name) {
+    for (int i = 0; i < importAliases.len; i++) {
+        if (StrEqual(importAliases.ptr[i], name)) return true;
+    }
+    return false;
+}
+
+
+static struct parserContext GetImportPc(struct parserContext head, struct str alias) {
+
+    for (int i = 0; i < StrListLen(head.importAliases); i++) {
+        if (StrEqual(alias, StrListGet(head.importAliases, i))) {
+            return parserContextListGetByFileName(*(head.parsedFiles), StrListGet(head.importNames, i));
+        }
+    }
+    Error("invalid alias");
+    exit(EXIT_FAILURE);
+}
+
+
+bool TryParseImportAlias(struct parserContext* pc, struct parserContext* aliasImport, struct token* aliasTok) {
     struct token tok;
+    if (!TryParseToken(pc, &tok, TOKEN_IDENTIFIER, false) || !ImportAliasExists(pc->importAliases, tok.str)) {
+        TokenUnget(&(pc->tc));
+        return false;
+    }
+    *aliasTok = tok;
+    *aliasImport = GetImportPc(*pc, tok.str);
+    return true;
+}
+
+
+struct type ParseTypeIdentifier(struct parserContext* pc) {
+    bool alias;
+    struct token aliasTok;
+    struct token tok;
+    struct parserContext import;
+    struct parserContext* typeSource = pc;
+
+    if ((alias = TryParseImportAlias(pc, &import, &aliasTok))) {
+        ForceParseToken(pc, &tok, TOKEN_DOT, false, "expected .");
+        typeSource = &import;
+    }
+
     ForceParseToken(pc, &tok, TOKEN_IDENTIFIER, false, "expected type identifier");
+    if (alias) aliasTok = TokenExtend(aliasTok, tok);
+    else aliasTok = tok;
     struct type t;
-    if (!GetType(tok.str, &t, pc)) SyntaxErrorInvalidToken(tok, "unknown type");
-    t.tok = tok;
+    if (typeListExists(typeSource->publTypes, tok.str)) t = typeListGet(typeSource->publTypes, tok.str);
+    else if (typeListExists(typeSource->privTypes, tok.str)) {
+        if (alias) SyntaxErrorInvalidToken(aliasTok, "type is private");
+        t = typeListGet(typeSource->privTypes, tok.str);
+    }
+    else SyntaxErrorInvalidToken(aliasTok, "unknown type");
+    t.tok = aliasTok;
+    return t;
+}
+
+
+struct type ParseType(struct parserContext* pc) {
+    struct type t = ParseTypeIdentifier(pc);
+    struct token tok;
     if (TryParseToken(pc, &tok, TOKEN_SQUAREBRACKET_OPEN, false)) {
         int arrLen = 0;
         bool ref = true;
@@ -571,45 +637,70 @@ bool parserContextListExistsFileName(struct parserContextList* pcl, struct str f
 }
 
 
-struct parserContext parserContextListGetByFileName(struct parserContextList* pcl, struct str fileName) {
-    for (int i = 0; i < pcl->len; i++) {
-        if (StrEqual(pcl->ptr[i].fileName, fileName)) return pcl->ptr[i];
-    }
-    Error("invalid file name");
-    exit(EXIT_FAILURE); //unreachable
+struct parserContext parserContextPlaceholder(struct str fileName) {
+    struct parserContext pc = {0};
+    pc.fileName = fileName;
+    return pc;
 }
 
 
-struct parserContext ParseFile(struct str fileName, struct parserContextList* pcl);
+void parserContextListUpdate(struct parserContextList* pcl, struct parserContext fullPc) {
+    for (int i = 0; i < pcl->len; i++) {
+        if (StrEqual(pcl->ptr[i].fileName, fullPc.fileName)) {
+            pcl->ptr[i] = fullPc;
+            return;
+        }
+    }
+    Error("invalid fileName");
+}
 
 
-void ParseImport(struct parserContext* pc, struct parserContextList* parsed) {
+struct parserContext parserContextNew(struct str fileName, struct parserContextList* parsedFiles) {
+    struct parserContext pc;
+    pc.parsedFiles = parsedFiles;
+    pc.fileName = fileName;
+    pc.importNames = StrListNew();
+    pc.importAliases = StrListNew();
+    pc.tc = TokenContextNew(fileName);
+    pc.publTypes = TypeListNew();
+    pc.privTypes = TypeListNew();
+    pc.publOps = OperandListNew();
+    pc.privOps = OperandListNew();
+    return pc;
+}
+
+
+void ParseFileFirstPass(struct parserContext* pc);
+
+
+void ParseImportFirstPass(struct parserContext* pc) {
     struct token nameTok;
     struct token aliasTok;
     ForceParseToken(pc, &nameTok, TOKEN_STRING, false, "expected import file name string");
     struct str name = StrSlice(nameTok.str, 1, StrGetLen(nameTok.str) -1);
-    if (parserContextListExistsFileName(&(pc->imports), name)) {
+    if (StrListExists(&(pc->importNames), name)) {
         SyntaxErrorInvalidToken(nameTok, "file already imported");
     }
     ForceParseToken(pc, &aliasTok, TOKEN_IDENTIFIER, false, "expected import alias");
     if (StrListExists(&(pc->importAliases), aliasTok.str)) {
         SyntaxErrorInvalidToken(aliasTok, "file alias already in use");
     }
-    if (!parserContextListExistsFileName(parsed, name)) {
-        struct parserContext importPc = ParseFile(name, parsed);
-        parserContextListAppend(parsed, importPc);
+    if (!parserContextListExistsFileName(pc->parsedFiles, name)) {
+        parserContextListAppend(pc->parsedFiles, parserContextPlaceholder(name));
+        struct parserContext importPc = parserContextNew(name, pc->parsedFiles);
+        ParseFileFirstPass(&importPc);
+        parserContextListUpdate(pc->parsedFiles, importPc);
     }
-    parserContextListAppend(&(pc->imports), parserContextListGetByFileName(parsed, name));
+    StrListAppend(&(pc->importNames), name);
     StrListAppend(&(pc->importAliases), aliasTok.str);
 }
 
 
-void ParseGlobalLevel(struct parserContext* pc, struct parserContextList* parsed) {
+void ParseGlobalLevel(struct parserContext* pc) {
     struct token tok = TokenNextDiscardNewlines(&(pc->tc));
     switch (tok.type) {
         case TOKEN_TYPE: ParseTypedef(pc); break; //typedefs are reparsed; this is defined behaviour
         case TOKEN_FUNC: break; //func headers are reparsed; this is defined behaviour
-        case TOKEN_IMPORT: ParseImport(pc, parsed); break;
         default: //SyntaxErrorInvalidToken(tok, NULL); 
     }
 }
@@ -626,26 +717,30 @@ static struct type TypePlaceholder(struct token name, enum baseType bType) {
 }
 
 
-void ParseTypePlaceholders(struct parserContext* pc) {
+void ParseTypePlaceholder(struct parserContext* pc) {
+    struct token nameTok;
+    ForceParseToken(pc, &nameTok, TOKEN_IDENTIFIER, false, "expected type name");
+    struct token tok;
+    tok = TokenNext(&(pc->tc));
+    switch (tok.type) {
+        case TOKEN_IDENTIFIER:
+            TokenUnget(&(pc->tc));
+            AddType(TypePlaceholder(nameTok, BASETYPE_INT32), pc);
+            break;
+
+        case TOKEN_FUNC: AddType(TypePlaceholder(nameTok, BASETYPE_FUNC), pc); break;
+        case TOKEN_STRUCT: AddType(TypePlaceholder(nameTok, BASETYPE_STRUCT), pc); break;
+        case TOKEN_VOCAB: AddType(TypePlaceholder(nameTok, BASETYPE_VOCAB), pc); break;
+        default: TokenUnget(&(pc->tc)); SyntaxErrorInvalidToken(tok, "invalid type");
+    }
+}
+
+
+void ParseTypePlaceholdersAndImportsFirstPass(struct parserContext* pc) {
     struct token tok;
     while ((tok = TokenNext(&(pc->tc))).type != TOKEN_EOF) {
-        if (tok.type == TOKEN_TYPE) {
-            struct token nameTok;
-            ForceParseToken(pc, &nameTok, TOKEN_IDENTIFIER, false, "expected type name");
-            tok = TokenNext(&(pc->tc));
-            switch (tok.type) {
-                case TOKEN_IDENTIFIER:
-                    TokenUnget(&(pc->tc));
-                    struct type t = ParseTypeNoInstantiation(pc);
-                    AddType(TypePlaceholder(nameTok, t.bType), pc);
-                    break;
-
-                case TOKEN_FUNC: AddType(TypePlaceholder(nameTok, BASETYPE_FUNC), pc); break;
-                case TOKEN_STRUCT: AddType(TypePlaceholder(nameTok, BASETYPE_STRUCT), pc); break;
-                case TOKEN_VOCAB: AddType(TypePlaceholder(nameTok, BASETYPE_VOCAB), pc); break;
-                default: TokenUnget(&(pc->tc)); SyntaxErrorInvalidToken(tok, "invalid type");
-            }
-        }
+        if (tok.type == TOKEN_TYPE) ParseTypePlaceholder(pc);
+        else if (tok.type == TOKEN_IMPORT) ParseImportFirstPass(pc);
     }
 }
 
@@ -734,39 +829,42 @@ void ParseCompleteTypesAndFuncHeaders(struct parserContext* pc) {
 }
 
 
-struct parserContext parserContextNew(struct str fileName) {
-    struct parserContext pc;
-    pc.fileName = fileName;
-    pc.imports = parserContextListNew();
-    pc.importAliases = StrListNew();
-    pc.tc = TokenContextNew(fileName);
-    pc.publTypes = TypeListNew();
-    pc.privTypes = TypeListNew();
-    pc.publOps = OperandListNew();
-    pc.privOps = OperandListNew();
-    AppendBaseTypes(&(pc.privTypes));
-    return pc;
+void ParseFileFirstPass(struct parserContext* pc) {
+    fputs("first pass parsing ", stdout);
+    StrPrint(pc->fileName, stdout);
+    fputs("...\n", stdout);
+    ParseTypePlaceholdersAndImportsFirstPass(pc);
+    TokenRestart(&(pc->tc));
 }
 
 
-struct parserContext ParseFile(struct str fileName, struct parserContextList* parsed) {
-    fputs("parsing ", stdout);
-    StrPrint(fileName, stdout);
+void ParseFileSecondPass(struct parserContext* pc) {
+    fputs("second pass parsing ", stdout);
+    StrPrint(pc->fileName, stdout);
     fputs("...\n", stdout);
-    struct parserContext pc = parserContextNew(fileName);
+    ParseCompleteTypesAndFuncHeaders(pc);
+    TokenRestart(&(pc->tc));
+}
+
+
+void ParseFileThirdPass(struct parserContext* pc) {
+    fputs("third pass parsing ", stdout);
+    StrPrint(pc->fileName, stdout);
+    fputs("...\n", stdout);
     struct token tok;
-    ParseTypePlaceholders(&pc);
-    TokenRestart(&(pc.tc));
-    ParseCompleteTypesAndFuncHeaders(&pc);
-    TokenRestart(&(pc.tc));
-    while (!TryParseToken(&pc, &tok, TOKEN_EOF, true)) {
-        ParseGlobalLevel(&pc, parsed);
+    while (!TryParseToken(pc, &tok, TOKEN_EOF, true)) {
+        ParseGlobalLevel(pc);
     }
-    return pc;
 }
 
 
 void ParseMainFile(char* fileName) {
-    struct parserContextList parsed = parserContextListNew();
-    ParseFile(StrFromCharArray(fileName), &parsed);
+    struct parserContextList parsedFiles = parserContextListNew();
+    parserContextListAppend(&parsedFiles, parserContextPlaceholder(StrFromCharArray(fileName)));
+    struct parserContext pc = parserContextNew(StrFromCharArray(fileName), &parsedFiles);
+    AppendBaseTypes(&(pc.privTypes));
+    ParseFileFirstPass(&pc);
+    ParseFileSecondPass(&pc);
+    ParseFileThirdPass(&pc);
+    parserContextListUpdate(&parsedFiles, pc);
 }
