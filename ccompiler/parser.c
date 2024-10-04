@@ -153,16 +153,7 @@ void typeListUpdate(struct typeList* tl, struct type t) {
 }
 
 
-struct type typeListGet(struct typeList* tl, struct str name) {
-    for (int i = 0; i < tl->len; i++) {
-        if (StrEqual(tl->ptr[i].name, name)) return tl->ptr[i];
-    }
-    Error("type does not exist in type list");
-    exit(EXIT_FAILURE); //unreachable
-}
-
-
-struct type* typeListGetPtr(struct typeList* tl, struct str name) {
+struct type* typeListGet(struct typeList* tl, struct str name) {
     for (int i = 0; i < tl->len; i++) {
         if (StrEqual(tl->ptr[i].name, name)) return tl->ptr + i;
     }
@@ -180,9 +171,9 @@ struct operand* opPtrListGet(struct opPtrList* opl, int index) {
 }
 
 
-struct variable varListGet(struct varList* vl, struct str name) {
+struct variable* varListGet(struct varList* vl, struct str name) {
     for (int i = 0; i < vl->len; i++) {
-        if (StrEqual(vl->ptr[i].name, name)) return vl->ptr[i];
+        if (StrEqual(vl->ptr[i].name, name)) return vl->ptr + i;
     }
     Error("variable does not exist in variable list");
     exit(EXIT_FAILURE); //unreachable
@@ -262,15 +253,15 @@ bool pcContainsSymbol(struct parserContext* pc, struct str name) {
 }
 
 
-struct variable pcGetVar(struct parserContext* pc, struct str name) {
+struct variable* pcGetVar(struct parserContext* pc, struct str name) {
     if (isPublic(name)) return varListGet(&(pc->publVarsAndConsts), name);
     return varListGet(&(pc->privVarsAndConsts), name);
 }
 
 
 struct type* pcGetTypePtr(struct parserContext* pc, struct str name) {
-    if (isPublic(name)) return typeListGetPtr(&(pc->publTypes), name);
-    return typeListGetPtr(&(pc->privTypes), name);
+    if (isPublic(name)) return typeListGet(&(pc->publTypes), name);
+    return typeListGet(&(pc->privTypes), name);
 }
 
 
@@ -497,8 +488,8 @@ bool parseIntConstantExpr(struct parserContext* pc, struct operand** op, bool di
 
 
 struct parserContext* getImportPc(struct parserContext* head, struct str alias) {
-    struct variable aliasVar = pcGetVar(head, alias);
-    return pcListGet(head->parsedFiles, aliasVar.value->strVal);
+    struct variable* aliasVar = pcGetVar(head, alias);
+    return pcListGet(head->parsedFiles, aliasVar->value->strVal);
 }
 
 
@@ -515,12 +506,12 @@ bool tryParseImportAlias(struct parserContext* pc, struct parserContext** import
 }
 
 
-struct type parseTypeIdentifier(struct parserContext* pc, struct str* name, struct token* typeToken) {
+struct type* parseTypeIdentifier(struct parserContext* pc, struct str* name, struct token* typeToken) {
     bool import;
     struct token tok;
     struct parserContext* typeSource = pc;
     if ((import = tryParseImportAlias(pc, &typeSource, typeToken))) {
-        parseToken(pc, &tok, TOKEN_DOT, false, "expected .");
+        parseToken(pc, &tok, TOKEN_DOT, false, NULL);
     }
     parseToken(pc, &tok, TOKEN_IDENTIFIER, false, "unknown type");
     *name = tok.str;
@@ -576,7 +567,7 @@ void parseTypeIsArray(struct parserContext* pc, struct type* t) {
 struct type parseType(struct parserContext* pc) {
     struct token tok;
     struct str name;
-    struct type t = parseTypeIdentifier(pc, &name, &tok);
+    struct type t = *parseTypeIdentifier(pc, &name, &tok);
     t.name = name;
     t.tok = tok;
     parseTypeIsStructInstantiation(pc, &t);
@@ -585,7 +576,7 @@ struct type parseType(struct parserContext* pc) {
 }
 
 
-struct variable parseVar(struct parserContext* pc, struct token* varTok) {
+struct variable* parseVarIdentifier(struct parserContext* pc, struct token* varTok) {
     bool alias;
     struct token tok;
     struct parserContext* import;
@@ -612,10 +603,10 @@ struct variable parseVar(struct parserContext* pc, struct token* varTok) {
 
 struct operand* parseOperand(struct parserContext* pc, struct varList* localVars) {
     struct token tok = TokenNext(pc->tc);
-    if (varListContains(localVars, tok.str)) return varListGet(localVars, tok.str).value;
+    if (varListContains(localVars, tok.str)) return varListGet(localVars, tok.str)->value;
     else if (tok.type == TOKEN_IDENTIFIER) {
         TokenUnget(pc->tc);
-        return parseVar(pc, &tok).value;
+        return parseVarIdentifier(pc, &tok)->value;
     }
     else {
         if (tok.type == TOKEN_INT) return operandIntConst(tok);
@@ -827,31 +818,10 @@ bool baseTypeComplete(struct type* t) {
 }
 
 
-struct type* parseAliasReferenceTypePtr(struct parserContext* pc, struct token* refToken) {
-    bool import;
-    struct token tok;
-    struct parserContext* typeSource = pc;
-    if ((import = tryParseImportAlias(pc, &typeSource, refToken))) {
-        parseToken(pc, &tok, TOKEN_DOT, false, NULL);
-    }
-    parseToken(pc, &tok, TOKEN_IDENTIFIER, false, "unknown type");
-    if (import) *refToken = TokenExtend(*refToken, tok);
-    else *refToken = tok;
-
-    if (typeListContains(&(typeSource->publTypes), tok.str)) {
-        return typeListGetPtr(&(typeSource->publTypes), tok.str);
-    }
-    else if (!import && typeListContains(&(typeSource->privTypes), tok.str)) {
-        return typeListGetPtr(&(typeSource->privTypes), tok.str);
-    }
-    else SyntaxErrorInvalidToken(*refToken, "unknown type");
-    exit(EXIT_FAILURE); //unreachable
-}
-
-
 void parseAliasTypeDef(struct parserContext* pc, struct token nameTok) {
+    struct str name;
     struct token refTok;
-    struct type* referenced = parseAliasReferenceTypePtr(pc, &refTok);
+    struct type* referenced = parseTypeIdentifier(pc, &name, &refTok);
     struct type* alias = pcGetTypePtr(pc, nameTok.str);
     if (baseTypeComplete(referenced)) {
         updateType(pc, aliasType(nameTok, *referenced, alias->dependants));

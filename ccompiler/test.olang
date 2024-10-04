@@ -3,6 +3,7 @@
 import "alsoTest.olang" tst
 
 type mydfsdfnt MyStructure
+type MyIntAgain MyInt[]
 
 
 type MyStructure struct {
