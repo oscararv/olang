@@ -2,18 +2,19 @@
 
 import "alsoTest.olang" tst
 
-type myInt tst.AlsoMyInt
+type mydfsdfnt MyStructure
 
 
 type MyStructure struct {
     self MyStructure,
     mst MST2{},
-    myInt myInt[],
+    myInt MyInt,
     alsoMyInt tst.AlsoMyInt[],
     myInt2 int32[2]
 }
 
 
+type MyInt tst.AlsoMyInt[]
 type MST2 struct {
     myStr MyStructure,
     fun MyFunc
@@ -24,7 +25,6 @@ type retStatus vocab {
     SUCCESS, FAILURE
 }
 
-func MyFunc(in int32)(retStatus)
 
 errorMsg const = "this is errorMsg" #const
 
@@ -33,7 +33,8 @@ type MyVocab vocab {
     I, AM, Test
 }
 
+func MyFun(in mut int32[], i bool[], in2 mut MyStructure)(float32, int32)
 
-type MyFunc func(int32[], mut MyStructure, int32)(int32[23], myInt, MyStructure{})
 
-func ThisIsFunc(in mut int32[], i bool[], in2 mut MyStructure)(float32, int32)
+type MyFunc func(int32[], mut MyStructure, int32)(int32[23], MyInt, MyStructure{})
+

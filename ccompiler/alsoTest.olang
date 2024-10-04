@@ -1,4 +1,4 @@
 import "test.olang" tst
 import "furtherTest.olang" tstF
-type alsoMyInt int32
-type AlsoMyInt int32
+type AlsoMyInt tstF.FurtherInt
+type alsoMyIntAgain tst.MyInt

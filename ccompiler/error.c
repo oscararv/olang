@@ -21,7 +21,7 @@ void CheckPtr(void* ptr) {
 }
 
 
-static void SyntaxErrorBase(int line, struct str fileName) {
+static void syntaxErrorBase(int line, struct str fileName) {
     printf(COLOR_GREEN "%d " COLOR_RESET, line);
     fputs(COLOR_CYAN, stdout);
     StrPrint(fileName, stdout);
@@ -30,38 +30,38 @@ static void SyntaxErrorBase(int line, struct str fileName) {
 }
 
 
-static void PrintChar(int c) {
+static void printChar(int c) {
     if (c == '\n') fputs("\\n", stdout);
     else putchar(c);
 }
 
 
-static void PrintCharIgnoreNewline(int c) {
+static void printCharIgnoreNewline(int c) {
     if (c != '\n') putchar(c);
 }
 
 
-static void PrintStr(struct str str) {
+static void printStr(struct str str) {
     for (int i = 0; i < StrGetLen(str); i++) {
-        PrintChar(StrGetChar(str, i));
+        printChar(StrGetChar(str, i));
     }
 }
 
 
-static void SyntaxErrorLine(int lineNr, struct str line, int colStart, int colEnd) {
+static void syntaxErrorLine(int lineNr, struct str line, int colStart, int colEnd) {
     printf(COLOR_GREEN "%d " COLOR_BRIGHT_BLACK, lineNr);
     for (int i = 0; i < colStart; i++) {
-        PrintCharIgnoreNewline(StrGetChar(line, i));
+        printCharIgnoreNewline(StrGetChar(line, i));
     }
 
     fputs(COLOR_RED, stdout);
     for (int i = colStart; i <= colEnd; i++) {
-        PrintChar(StrGetChar(line, i));
+        printChar(StrGetChar(line, i));
     }
 
     fputs(COLOR_BRIGHT_BLACK, stdout);
     for (int i = colEnd +1; i < line.len; i++) {
-        PrintCharIgnoreNewline(StrGetChar(line, i));
+        printCharIgnoreNewline(StrGetChar(line, i));
     }
     puts(COLOR_RESET);
 }
@@ -70,17 +70,17 @@ static void SyntaxErrorLine(int lineNr, struct str line, int colStart, int colEn
 //reason may be NULL
 void SyntaxErrorInvalidChar(struct tokenContext* tc, int col, char* reason) {
     struct str line = StrListGet(tc->lines, StrListLen(tc->lines) -1);
-    SyntaxErrorBase(StrListLen(tc->lines), tc->fileName);
+    syntaxErrorBase(StrListLen(tc->lines), tc->fileName);
     fputs(COLOR_YELLOW, stdout);
     fputs("\"", stdout);
-    PrintChar(StrGetChar(line, col));
+    printChar(StrGetChar(line, col));
     fputs("\"", stdout);
     if (reason) {
         fputs(" ", stdout);
         fputs(reason, stdout);
     }
     puts(COLOR_RESET);
-    SyntaxErrorLine(StrListLen(tc->lines), line, col, col);
+    syntaxErrorLine(StrListLen(tc->lines), line, col, col);
     exit(EXIT_FAILURE);
 }
 
@@ -89,14 +89,14 @@ void SyntaxErrorInvalidChar(struct tokenContext* tc, int col, char* reason) {
 void SyntaxErrorInvalidToken(struct token tok, char* reason) {
     struct tokenContext* tc = tok.context;
     struct str line = StrListGet(tc->lines, tok.lineNr -1);
-    SyntaxErrorBase(tok.lineNr, tc->fileName);
+    syntaxErrorBase(tok.lineNr, tc->fileName);
     fputs(COLOR_YELLOW, stdout);
     if (tok.type == TOKEN_EOF) {
         fputs("unexpected end of file", stdout);
     }
     else {
         fputs("\"", stdout);
-        PrintStr(tok.str);
+        printStr(tok.str);
         fputs("\"", stdout);
     }
     if (reason) {
@@ -106,7 +106,7 @@ void SyntaxErrorInvalidToken(struct token tok, char* reason) {
     puts(COLOR_RESET);
     if (tok.type != TOKEN_EOF) {
         int colStart = StrGetSliceStrIndex(line, tok.str);
-        SyntaxErrorLine(tok.lineNr, line, colStart, colStart + StrGetLen(tok.str) -1);
+        syntaxErrorLine(tok.lineNr, line, colStart, colStart + StrGetLen(tok.str) -1);
     }
     exit(EXIT_FAILURE);
 }

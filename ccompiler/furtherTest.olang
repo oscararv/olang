@@ -1,6 +1,7 @@
 import "test.olang" test
 import "alsoTest.olang" tst
 
+type FurtherInt int32
 type furtherStruct struct {
     i int32,
     mStr test.MyStructure{},

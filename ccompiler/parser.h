@@ -3,7 +3,11 @@
 #include "token.h"
 
 
+#define ARRAY_REF -1 //must not interfere with a valid array length
+
+
 enum baseType {
+    BASETYPE_PLACEHOLDER, //type definition type after first pass
     BASETYPE_BYTE,
     BASETYPE_BOOL,
     BASETYPE_INT8,
@@ -20,6 +24,7 @@ enum baseType {
     BASETYPE_STRUCT,
     BASETYPE_VOCAB,
     BASETYPE_FUNC,
+    BASETYPE_IMPORT,
     BASETYPE_INT, //constant type
     BASETYPE_FLOAT, //constant type
     BASETYPE_CHAR, //constant type
@@ -27,24 +32,45 @@ enum baseType {
 };
 
 
-struct type {
-    enum baseType bType;
-    struct str name;
-    void* advanced; //advanced part of the type may be updated during the compilation
-    bool ref; //arrays and structs can be references
-    bool mut; //arrays and structs can be mutable or as function arguments
-    struct token tok; //token associated with the type instance; concatenated if eligible
+enum operationType {
+    OPERATION_NOOP,
+    OPERATION_TYPECAST,
+    OPERATION_FUNC,
+    OPERATION_MUL,
+    OPERATION_DIV,
+    OPERATION_ADD,
+    OPERATION_SUB,
+    OPERATION_MODULO,
+    OPERATION_INCREMENT,
+    OPERATION_DECREMENT,
+    OPERATION_LOGICAL_EQUALS,
+    OPERATION_LOGICAL_NOT,
+    OPERATION_LOGICAL_AND,
+    OPERATION_LOGICAL_OR,
+    OPERATION_LOGICAL_LESS_THAN,
+    OPERATION_LOGICAL_LESS_THAN_OR_EQUAL,
+    OPERATION_LOGICAL_GREATER_THAN,
+    OPERATION_LOGICAL_GREATER_THAN_OR_EQUAL,
+    OPERATION_BITWISE_AND,
+    OPERATION_BITWISE_OR,
+    OPERATION_BITWISE_XOR,
+    OPERATION_BITWISE_COMPLEMENT,
+    OPERATION_BITSHIFT_LEFT,
+    OPERATION_BITSHIFT_RIGHT
 };
 
 
-struct arrTypeData {
-    struct type heldType;
+struct opPtrList {
     int len;
+    int cap;
+    struct operand** ptr;
 };
 
 
-struct vocabTypeData {
-    struct strList words;
+struct varList {
+    int len;
+    int cap;
+    struct variable* ptr;
 };
 
 
@@ -55,64 +81,86 @@ struct typeList {
 };
 
 
-struct funcTypeData {
-    struct typeList args;
-    struct typeList rets;
-};
-
-
-struct operandList {
-    bool isSlice;
+struct typePtrList {
     int len;
     int cap;
-    struct operand* ptr;
+    struct type** ptr;
 };
 
 
-
-struct structTypeData {
-    struct operandList members;
+//type definitions are not themselves usable types
+//rather types reference a type definition
+//type definitions may only be allocated once
+//they are unnamed and allocated ad hoc
+//may be updated during the compilation
+struct typeDef {
+    bool complete;
+    struct strList words;
+    struct varList args;
+    struct typeList rets;
+    struct varList members;
     struct typeList embeddedStructs;
 };
 
 
-union operandValue {
-    long long int intVal;
-    double floatVal;
-    struct str stringVal;
-};
-
-
-struct operand {
+//types must reference a type definition
+//there may be several type instances per type definition
+struct type {
     struct str name;
-    struct type type;
-    bool init;
-    union operandValue value;
-    struct operandList args; //only used with function operands;
-    struct typeList rets; //only used with function operands;
+    struct token tok;
+    enum baseType bType;
+    struct typeDef* def;
+    bool ref; //arrays are refs if dimension one is ARRAY_REF; struct are refs unless they are declared "{}"
+    bool mut;
+    struct opPtrList arrLenghts;
+    enum baseType arrBType;
+    struct typePtrList dependants; //types aliasing this type before its base type is defined
 };
 
 
-struct parserContextList {
+//operands are unnamed and always allocated ad hoc
+struct operand {
+    struct token tok;
+    struct type type;
+    bool valKnown;
+    long long intVal;
+    double floatVal;
+    struct str strVal;
+    struct opPtrList operands;
+    enum operationType operation;
+};
+
+
+//variables may ever only be part of one variable list
+//variables can be unnamed and allocated in local variable lists
+//variables allocated in parser context lists must be named
+struct variable {
+    struct str name;
+    struct token tok;
+    struct type type;
+    struct operand* value;
+};
+
+
+struct pcList {
     int len;
     int cap;
-    struct parserContext *ptr;
+    struct parserContext* ptr;
 };
 
 
 struct parserContext {
-    struct parserContextList* parsedFiles; //reference to universal parsedFiles list held by all parser contexts
     struct str fileName;
-    struct strList importNames;
-    struct strList importAliases;
-    struct tokenContext tc;
+    struct tokenContext* tc;
+    struct pcList* parsedFiles;
     struct typeList publTypes;
     struct typeList privTypes;
-    struct operandList publOps;
-    struct operandList privOps;
+    struct varList publVarsAndConsts;
+    struct varList privVarsAndConsts;
 };
 
 
 void ParseMainFile(char* fileName);
+
 
 #endif //PARSER_H

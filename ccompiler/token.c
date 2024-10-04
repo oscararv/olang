@@ -55,14 +55,15 @@ void tokenPipeUnpop(struct tokenPipe* pipe) {
 }
 
 
-struct tokenContext TokenContextNew(struct str fileName) {
-    struct tokenContext tc;
-    tc.fileName = fileName;
+struct tokenContext* TokenContextNew(struct str fileName) {
+    struct tokenContext* tc = malloc(sizeof(*tc));
+    CheckPtr(tc);
+    tc->fileName = fileName;
 
     char charArrName[StrGetLen(fileName) +1];
     StrToCharArray(fileName, charArrName);
-    tc.fp = fopen(charArrName, "r");
-    if (!tc.fp) {
+    tc->fp = fopen(charArrName, "r");
+    if (!tc->fp) {
         char errorMsg[StrGetLen(fileName) + 100];
         errorMsg[0] = '"';
         StrToCharArray(fileName, errorMsg+1);
@@ -70,8 +71,8 @@ struct tokenContext TokenContextNew(struct str fileName) {
         Error(errorMsg);
     }
 
-    tc.tokens = TokenPipeNew();
-    tc.lines = StrListNew();
+    tc->tokens = TokenPipeNew();
+    tc->lines = StrListNew();
     return tc;
 }
 
@@ -477,6 +478,7 @@ struct token TokenExtend(struct token base, struct token tail) { //assumes the t
 
 char* TokenTypeToString(enum tokenType t) {
     switch(t) {
+        case TOKEN_UNDEF: return "";
         case TOKEN_EOF: return "end of file";
         case TOKEN_NEWLINE: return "newline";
         case TOKEN_INT: return "integer constant";

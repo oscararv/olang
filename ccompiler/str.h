@@ -39,5 +39,10 @@ bool StrEqualCharArray(struct str str, char* ca);
 struct str StrGetContainsBoth(struct str a, struct str b);
 void StrToCharArray(struct str s, char* arrLenSPlusOne);
 void StrPrint(struct str s, FILE* fp);
+long long StrToLongLongVal(struct str s);
+double StrToDoubleVal(struct str s);
+char StrToCharVal(struct str s);
+struct str StrToStringVal(struct str s);
+
 
 #endif //STR_H

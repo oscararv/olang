@@ -3,7 +3,9 @@
 #include "stdio.h"
 #include "str.h"
 
+
 enum tokenType {
+    TOKEN_UNDEF = 0,
     TOKEN_EOF,
     TOKEN_NEWLINE,
     TOKEN_INT,
@@ -87,7 +89,11 @@ struct tokenContext {
 };
 
 
-struct tokenContext TokenContextNew(struct str fileName);
+#define LINE_NR_UNDEFINED -1
+static const struct token TOKEN_UNDEFINED = {.type = TOKEN_UNDEF, .lineNr = LINE_NR_UNDEFINED};
+
+
+struct tokenContext* TokenContextNew(struct str fileName);
 struct token TokenNext(struct tokenContext* tc);
 void TokenDiscardNewlines(struct tokenContext* tc);
 struct token TokenNextDiscardNewlines(struct tokenContext* tc);
@@ -95,5 +101,6 @@ void TokenUnget(struct tokenContext* tc);
 void TokenRestart(struct tokenContext* tc);
 struct token TokenExtend(struct token base, struct token tail); //assumes the tokens exist on the same line
 char* TokenTypeToString(enum tokenType t);
+
 
 #endif //TOKEN_H

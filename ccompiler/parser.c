@@ -8,7 +8,197 @@
 #include "error.h"
 
 
-static bool isPublic(struct str str) {
+struct typeDef intConstTypeDef = {.complete = true};
+struct type intConstType = {.tok = TOKEN_UNDEFINED, .bType = BASETYPE_INT, .def = &intConstTypeDef};
+
+struct typeDef floatConstTypeDef = {.complete = true};
+struct type floatConstType = {.tok = TOKEN_UNDEFINED, .bType = BASETYPE_FLOAT, .def = &floatConstTypeDef};
+
+struct typeDef charConstTypeDef = {.complete = true};
+struct type charConstType = {.tok = TOKEN_UNDEFINED, .bType = BASETYPE_CHAR, .def = &charConstTypeDef};
+
+struct typeDef stringConstTypeDef = {.complete = true};
+struct type stringConstType = {.tok = TOKEN_UNDEFINED, .bType = BASETYPE_FLOAT, .def = &stringConstTypeDef};
+
+
+struct typeList typeListNew() {
+    return (struct typeList){0};
+}
+
+
+struct typePtrList typePtrListNew() {
+    return (struct typePtrList){0};
+}
+
+
+struct opPtrList opPtrListNew() {
+    return (struct opPtrList){0};
+}
+
+
+struct varList varListNew() {
+    return (struct varList){0};
+}
+
+
+struct pcList pcListNew() {
+    return (struct pcList){0};
+}
+
+
+void typeListAppend(struct typeList* tl, struct type t) {
+    if (tl->len >= tl->cap) {
+        tl->cap += 100;
+        tl->ptr = realloc(tl->ptr, sizeof(*(tl->ptr)) * tl->cap);
+        CheckPtr(tl->ptr);
+    }
+    tl->ptr[tl->len] = t;
+    (tl->len)++;
+}
+
+
+void typePtrListAppend(struct typePtrList* tpl, struct type* t) {
+    if (tpl->len >= tpl->cap) {
+        tpl->cap += 100;
+        tpl->ptr = realloc(tpl->ptr, sizeof(*(tpl->ptr)) * tpl->cap);
+        CheckPtr(tpl->ptr);
+    }
+    tpl->ptr[tpl->len] = t;
+    (tpl->len)++;
+}
+
+
+void opPtrListAppend(struct opPtrList* opl, struct operand* o) {
+    if (opl->len >= opl->cap) {
+        opl->cap += 100;
+        opl->ptr = realloc(opl->ptr, sizeof(*(opl->ptr)) * opl->cap);
+        CheckPtr(opl->ptr);
+    }
+    opl->ptr[opl->len] = o;
+    (opl->len)++;
+}
+
+
+void varListAppend(struct varList* vl, struct variable v) {
+    if (vl->len >= vl->cap) {
+        vl->cap += 100;
+        vl->ptr = realloc(vl->ptr, sizeof(*(vl->ptr)) * vl->cap);
+        CheckPtr(vl->ptr);
+    }
+    vl->ptr[vl->len] = v;
+    (vl->len)++;
+}
+
+
+void pcListAppend(struct pcList* pcl, struct parserContext pc) {
+    if (pcl->len >= pcl->cap) {
+        pcl->cap += 100;
+        pcl->ptr = realloc(pcl->ptr, sizeof(*(pcl->ptr)) * pcl->cap);
+        CheckPtr(pcl->ptr);
+    }
+    pcl->ptr[pcl->len] = pc;
+    (pcl->len)++;
+}
+
+
+bool typeListContains(struct typeList* tl, struct str name) {
+    for (int i = 0; i < tl->len; i++) {
+        if (StrEqual(tl->ptr[i].name, name)) return true;
+    }
+    return false;
+}
+
+
+bool typePtrListContains(struct typePtrList* tpl, struct str name) {
+    for (int i = 0; i < tpl->len; i++) {
+        if (StrEqual(tpl->ptr[i]->name, name)) return true;
+    }
+    return false;
+}
+
+
+bool typePtrListContainsPtr(struct typePtrList* tpl, struct type* ptr) {
+    for (int i = 0; i < tpl->len; i++) {
+        if (tpl->ptr[i] == ptr) return true;
+    }
+    return false;
+}
+
+
+bool varListContains(struct varList* vl, struct str name) {
+    for (int i = 0; i < vl->len; i++) {
+        if (StrEqual(vl->ptr[i].name, name)) return true;
+    }
+    return false;
+}
+
+
+bool pcListContains(struct pcList* pcl, struct str fileName) {
+    for (int i = 0; i < pcl->len; i++) {
+        if (StrEqual(pcl->ptr[i].fileName, fileName)) return true;
+    }
+    return false;
+}
+
+
+void typeListUpdate(struct typeList* tl, struct type t) {
+    for (int i = 0; i < tl->len; i++) {
+        if (StrEqual(tl->ptr[i].name, t.name)) {
+            tl->ptr[i] = t;
+            return;
+        }
+    }
+    Error("type does not exist in type list");
+    exit(EXIT_FAILURE); //unreachable
+}
+
+
+struct type typeListGet(struct typeList* tl, struct str name) {
+    for (int i = 0; i < tl->len; i++) {
+        if (StrEqual(tl->ptr[i].name, name)) return tl->ptr[i];
+    }
+    Error("type does not exist in type list");
+    exit(EXIT_FAILURE); //unreachable
+}
+
+
+struct type* typeListGetPtr(struct typeList* tl, struct str name) {
+    for (int i = 0; i < tl->len; i++) {
+        if (StrEqual(tl->ptr[i].name, name)) return tl->ptr + i;
+    }
+    Error("type does not exist in type list");
+    exit(EXIT_FAILURE); //unreachable
+}
+
+
+struct operand* opPtrListGet(struct opPtrList* opl, int index) {
+    if (index >= opl->len) {
+        Error("index out of bounds");
+        exit(EXIT_FAILURE); //unreachable
+    }
+    return opl->ptr[index];
+}
+
+
+struct variable varListGet(struct varList* vl, struct str name) {
+    for (int i = 0; i < vl->len; i++) {
+        if (StrEqual(vl->ptr[i].name, name)) return vl->ptr[i];
+    }
+    Error("variable does not exist in variable list");
+    exit(EXIT_FAILURE); //unreachable
+}
+
+
+struct parserContext* pcListGet(struct pcList* pcl, struct str fileName) {
+    for (int i = 0; i < pcl->len; i++) {
+        if (StrEqual(pcl->ptr[i].fileName, fileName)) return pcl->ptr + i;
+    }
+    Error("variable does not exist in variable list");
+    exit(EXIT_FAILURE); //unreachable
+}
+
+
+bool isPublic(struct str str) {
     if (StrGetLen(str) <= 0) Error("can not check publicity on empty string");
     char c = StrGetChar(str, 0);
     if (c >= 'A' && c <= 'Z') return true;
@@ -16,167 +206,105 @@ static bool isPublic(struct str str) {
 }
 
 
-static void TypeSetMutTrue(struct type* t) {
-    t->mut = true;
+struct typeDef* typeDefEmpty() {
+    struct typeDef* t = malloc(sizeof(*t));
+    CheckPtr(t);
+    *t = (struct typeDef){0};
+    return t;
 }
 
 
-static struct type BaseType(char* name, enum baseType bType) {
-    struct type t;
-    t.bType = bType;
+struct type vanillaType(char* name, enum baseType bType) {
+    struct typeDef* tDef = typeDefEmpty();
+    tDef->complete = true;
+
+    struct type t = {0};
     t.name = StrFromCharArray(name);
-    t.advanced = NULL;
-    t.ref = false;
-    t.mut = false;
+    t.tok = TOKEN_UNDEFINED;
+    t.bType = bType;
+    t.def = tDef;
+    t.ref = true;
     return t;
 }
 
 
-struct operandList OperandListSlice(struct operandList ol, int start, int len) {
-    if (start < 0 || start > ol.len -1) Error("slice start index out of bounds");
-    if (len < 0 || len > ol.len - start) Error("slice len runs out of bounds");
-
-    struct operandList ret;
-    ret.isSlice = true;
-    ret.len = ol.len - start;
-    ret.cap = ol.cap - start;
-    ret.ptr = ol.ptr;
-    return ret;
+void appendVanillaTypes(struct typeList* spl) {
+    typeListAppend(spl, vanillaType("byte", BASETYPE_BYTE));
+    typeListAppend(spl, vanillaType("bool", BASETYPE_BOOL));
+    typeListAppend(spl, vanillaType("int8", BASETYPE_INT8));
+    typeListAppend(spl, vanillaType("int16", BASETYPE_INT16));
+    typeListAppend(spl, vanillaType("int32", BASETYPE_INT32));
+    typeListAppend(spl, vanillaType("int64", BASETYPE_INT64));
+    typeListAppend(spl, vanillaType("uint8", BASETYPE_UINT8));
+    typeListAppend(spl, vanillaType("uint16", BASETYPE_UINT16));
+    typeListAppend(spl, vanillaType("uint32", BASETYPE_UINT32));
+    typeListAppend(spl, vanillaType("uint64", BASETYPE_UINT64));
+    typeListAppend(spl, vanillaType("float32", BASETYPE_FLOAT32));
+    typeListAppend(spl, vanillaType("float64", BASETYPE_FLOAT64));
 }
 
 
-void TypeListAppend(struct typeList* tl, struct type type) {
-    if (tl->len >= tl->cap) {
-        tl->cap += 100;
-        tl->ptr = realloc(tl->ptr, sizeof(*(tl->ptr)) * tl->cap);
-        CheckPtr(tl->ptr);
-    }
-    tl->ptr[tl->len] = type;
-    tl->len++;
+bool pcContainsType(struct parserContext* pc, struct str name) {
+    if (isPublic(name) && typeListContains(&(pc->publTypes), name)) return true;
+    return typeListContains(&(pc->privTypes), name);
 }
 
 
-void TypeListMerge(struct typeList* base, struct typeList appendix) {
-    int oldLen = base->len;
-    base->len += appendix.len;
-    if (base->len >= base->cap) {
-        base->cap = appendix.len;
-        base->ptr = realloc(base->ptr, sizeof(*(base->ptr)) * base->cap);
-        CheckPtr(base->ptr);
-    }
-    for (int i = 0; i < appendix.len; i++) {
-        base->ptr[oldLen + i] = appendix.ptr[i];
-    }
+bool pcContainsVar(struct parserContext* pc, struct str name) {
+    if (isPublic(name) && varListContains(&(pc->publVarsAndConsts), name)) return true;
+    return varListContains(&(pc->privVarsAndConsts), name);
 }
 
 
-static void AppendBaseTypes(struct typeList* tl) {
-    TypeListAppend(tl, BaseType("byte", BASETYPE_BYTE));
-    TypeListAppend(tl, BaseType("bool", BASETYPE_BOOL));
-    TypeListAppend(tl, BaseType("int8", BASETYPE_INT8));
-    TypeListAppend(tl, BaseType("int16", BASETYPE_INT16));
-    TypeListAppend(tl, BaseType("int32", BASETYPE_INT32));
-    TypeListAppend(tl, BaseType("int64", BASETYPE_INT64));
-    TypeListAppend(tl, BaseType("uint8", BASETYPE_UINT8));
-    TypeListAppend(tl, BaseType("uint16", BASETYPE_UINT16));
-    TypeListAppend(tl, BaseType("uint32", BASETYPE_UINT32));
-    TypeListAppend(tl, BaseType("uint64", BASETYPE_UINT64));
-    TypeListAppend(tl, BaseType("float32", BASETYPE_FLOAT32));
-    TypeListAppend(tl, BaseType("float64", BASETYPE_FLOAT64));
+bool pcContainsSymbol(struct parserContext* pc, struct str name) {
+    if (pcContainsType(pc, name)) return true;
+    return pcContainsVar(pc, name);
 }
 
 
-
-struct typeList TypeListNew() {
-    struct typeList tl;
-    tl.len = 0;
-    tl.cap = 0;
-    tl.ptr = NULL;
-    return tl;
+struct variable pcGetVar(struct parserContext* pc, struct str name) {
+    if (isPublic(name)) return varListGet(&(pc->publVarsAndConsts), name);
+    return varListGet(&(pc->privVarsAndConsts), name);
 }
 
 
-static struct type typeListGet(struct typeList tl, struct str name) {
-    for (int i = 0; i < tl.len; i++) {
-        if (StrEqual(tl.ptr[i].name, name)) {
-            return tl.ptr[i];
-        }
-    }
-    Error("invalid type name");
-    exit(EXIT_FAILURE); //unreachable
+struct type* pcGetTypePtr(struct parserContext* pc, struct str name) {
+    if (isPublic(name)) return typeListGetPtr(&(pc->publTypes), name);
+    return typeListGetPtr(&(pc->privTypes), name);
 }
 
 
-
-static bool typeListExists(struct typeList tl, struct str name) {
-    for (int i = 0; i < tl.len; i++) {
-        if (StrEqual(tl.ptr[i].name, name)) {
-            return true;
-        }
-    }
-    return false;
+void updateType(struct parserContext* pc, struct type t) {
+    if (isPublic(t.name)) typeListUpdate(&(pc->publTypes), t);
+    else typeListUpdate(&(pc->privTypes), t);
 }
 
 
-bool ExistsType(struct str name, struct typeList publ, struct typeList priv) {
-    if (typeListExists(publ, name)) return true;
-    if (typeListExists(priv, name)) return true;
-    return false;
+void pcAddType(struct parserContext* pc, struct type t) {
+    if (pcContainsSymbol(pc, t.name)) SyntaxErrorInvalidToken(t.tok, "symbol already defined");
+    if (isPublic(t.name)) typeListAppend(&(pc->publTypes), t);
+    else typeListAppend(&(pc->privTypes), t);
 }
 
 
-void typeListUpdate(struct typeList* tl, struct type t) {
-    for (int i = 0; i < tl->len; i++) {
-        if (StrEqual(t.name, tl->ptr[i].name)) {
-            tl->ptr[i] = t;
-            return;
-        }
-    }
-    Error("type to be updated does not exist");
+void pcAddVar(struct parserContext* pc, struct variable v) {
+    if (pcContainsSymbol(pc, v.name)) SyntaxErrorInvalidToken(v.tok, "symbol already defined");
+    if (isPublic(v.name)) varListAppend(&(pc->publVarsAndConsts), v);
+    else varListAppend(&(pc->privVarsAndConsts), v);
 }
 
 
-void UpdateType(struct parserContext* pc, struct type t) {
-    struct typeList* tl = isPublic(t.name) ? &(pc->publTypes) : &(pc->privTypes);
-    typeListUpdate(tl, t);
-}
-
-
-void AddType(struct type t, struct parserContext* pc) {
-    if (ExistsType(t.name, pc->publTypes, pc->privTypes)) {
-        SyntaxErrorInvalidToken(t.tok, "type name already exists");
-    }
-    if (isPublic(t.name)) TypeListAppend(&(pc->publTypes), t);
-    else TypeListAppend(&(pc->privTypes), t);
-}
-
-
-struct type ArrType(struct type heldType, int len, bool ref) {
-    struct arrTypeData* arrT = malloc(sizeof(*arrT));
-    CheckPtr(arrT);
-    arrT->heldType = heldType;
-    arrT->len = len;
-
-    struct type t;
-    t.bType = BASETYPE_ARRAY;
-    t.name = StrNew();
-    t.advanced = arrT;
-    t.ref = ref;
-    t.mut = false;
-    return t;
-}
-
-
-struct typeList GetEmbeddedStructMembers(struct operandList members) {
-    struct typeList embedded = TypeListNew();
-    for (int i = 0; i < members.len; i++) {
-        struct type membType = members.ptr[i].type;
-        if (membType.bType == BASETYPE_STRUCT && !membType.ref) {
-            TypeListAppend(&embedded, membType);
-            if (membType.advanced) {
-                struct typeList contained =
-                GetEmbeddedStructMembers(((struct structTypeData*)membType.advanced)->members);
-                TypeListMerge(&embedded, contained);
+struct typeList getEmbeddedStructs(struct varList* members) {
+    struct typeList embedded = typeListNew();
+    for (int i = 0; i < members->len; i++) {
+        struct type membType = members->ptr[i].type;
+        if (membType.bType == BASETYPE_STRUCT && !(membType.ref)) {
+            typeListAppend(&embedded, membType);
+            if (membType.def->complete) {
+                struct typeList contained = getEmbeddedStructs(&(membType.def->members));
+                for (int i = 0; i < contained.len; i++) {
+                    typeListAppend(&embedded, contained.ptr[i]);
+                }
             }
         }
     }
@@ -184,130 +312,93 @@ struct typeList GetEmbeddedStructMembers(struct operandList members) {
 }
 
 
-struct type StructType(struct operandList members) {
-    struct structTypeData* structT = malloc(sizeof(*structT));
-    CheckPtr(structT);
-    structT->members = members;
-    structT->embeddedStructs = GetEmbeddedStructMembers(members);
-
-    struct type t;
+struct type placeholderType(struct token nameTok) {
+    struct type t = {0};
+    t.name = nameTok.str;
+    t.tok = nameTok;
+    t.bType = BASETYPE_PLACEHOLDER;
+    t.def = typeDefEmpty();
     t.ref = true;
+    return t;
+}
+
+
+struct type importType() {
+    struct typeDef* tDef = typeDefEmpty();
+    tDef->complete = true;
+
+    struct type t = {0};
+    t.name = TOKEN_UNDEFINED.str;
+    t.tok = TOKEN_UNDEFINED;
+    t.bType = BASETYPE_IMPORT;
+    t.def = tDef;
+    return t;
+}
+
+
+struct type structType(struct token nameTok, struct varList members) {
+    struct typeDef* tDef = typeDefEmpty();
+    tDef->complete = true;
+    tDef->members = members;
+    tDef->embeddedStructs = getEmbeddedStructs(&members);
+
+    struct type t = {0};
+    t.name = nameTok.str;
+    t.tok = nameTok;
     t.bType = BASETYPE_STRUCT;
-    t.name = StrNew();
-    t.advanced = structT;
-    t.mut = false;
+    t.def = tDef;
+    t.ref = true;
     return t;
 }
 
 
-struct type VocabType(struct strList words) {
-    struct vocabTypeData* vocabT = malloc(sizeof(*vocabT));
-    CheckPtr(vocabT);
-    vocabT->words = words;
+struct type vocabType(struct token nameTok, struct strList words) {
+    struct typeDef* tDef = typeDefEmpty();
+    tDef->complete = true;
+    tDef->words = words;
 
-    struct type t;
+    struct type t = {0};
+    t.name = nameTok.str;
+    t.tok = nameTok;
     t.bType = BASETYPE_VOCAB;
-    t.name = StrNew();
-    t.advanced = vocabT;
-    t.ref = false;
-    t.mut = false;
+    t.def = tDef;
     return t;
 }
 
 
-struct type FuncType(struct typeList args, struct typeList rets) {
-    struct funcTypeData* funcT = malloc(sizeof(struct funcTypeData));
-    CheckPtr(funcT);
-    funcT->args = args;
-    funcT->rets = rets;
+struct type funcType(struct token nameTok, struct varList args, struct typeList rets) {
+    struct typeDef* tDef = typeDefEmpty();
+    tDef->complete = true;
+    tDef->args = args;
+    tDef->rets = rets;
 
-    struct type t;
+    struct type t = {0};
+    t.name = nameTok.str;
+    t.tok = nameTok;
     t.bType = BASETYPE_FUNC;
-    t.name = StrNew();
-    t.advanced = funcT;
-    t.ref = false;
-    t.mut = false;
+    t.def = tDef;
     return t;
 }
 
 
-struct type AliasType(struct type old, struct str name) {
-    old.name = name;
-    return old;
+struct type aliasType(struct token nameTok, struct type oldNameT, struct typePtrList dependants) {
+    oldNameT.name = nameTok.str;
+    oldNameT.tok = nameTok;
+    oldNameT.dependants = dependants;
+    return oldNameT;
 }
 
 
-struct operand OperandNew(struct str name, struct type type) {
-    struct operand op;
-    op.name = name;
-    op.type = type;
-    op.init = false;
-    return op;
-}
-
-
-struct operandList OperandListNew() {
-    struct operandList ol;
-    ol.isSlice = false;
-    ol.len = 0;
-    ol.cap = 0;
-    ol.ptr = NULL;
-    return ol;
-}
-
-
-static bool operandListExists(struct operandList ol, struct str name) {
-    for (int i = 0; i < ol.len; i++) {
-        if (StrEqual(ol.ptr[i].name, name)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-
-void operandListAppend(struct operandList* ol, struct operand op) {
-    if (ol->isSlice) Error("tried to append to operand slice");
-    if (ol->len >= ol->cap) {
-        ol->cap += 100;
-        ol->ptr = realloc(ol->ptr, sizeof(*(ol->ptr)) * ol->cap);
-        CheckPtr(ol->ptr);
-    }
-    ol->ptr[ol->len] = op;
-    ol->len++;
-}
-
-
-static struct operand operandListGet(struct operandList ol, struct str name) {
-    for (int i = 0; i < ol.len; i++) {
-        if (StrEqual(ol.ptr[i].name, name)) {
-            return ol.ptr[i];
-        }
-    }
-    Error("invalid type name");
-    exit(EXIT_FAILURE); //unreachable
-}
-
-
-struct operand GetOperand(struct str name, struct operandList local, struct parserContext* pc) {
-    if (operandListExists(pc->publOps, name)) return operandListGet(pc->publOps, name);
-    if (operandListExists(pc->privOps, name)) return operandListGet(pc->privOps, name);
-    if (operandListExists(local, name)) return operandListGet(local, name);
-    Error("invalid operand name");
-    exit(EXIT_FAILURE); //unreachable
-}
-
-
-static bool TryParseToken(struct parserContext* pc, struct token* tok,
+bool tryParseToken(struct parserContext* pc, struct token* tok,
         enum tokenType type, bool discardNewlines) {
 
     struct token tmpTok;
     if (discardNewlines) {
-        tmpTok = TokenNextDiscardNewlines(&(pc->tc));
+        tmpTok = TokenNextDiscardNewlines(pc->tc);
     }
-    else tmpTok = TokenNext(&(pc->tc));
+    else tmpTok = TokenNext(pc->tc);
     if (tmpTok.type != type) {
-        TokenUnget(&(pc->tc));
+        TokenUnget(pc->tc);
         return false;
     }
     *tok = tmpTok;
@@ -316,13 +407,13 @@ static bool TryParseToken(struct parserContext* pc, struct token* tok,
 
 
 //errorMsg is autogenerated on NULL
-static void ForceParseToken(struct parserContext* pc, struct token* tok,
+void parseToken(struct parserContext* pc, struct token* tok,
         enum tokenType type, bool discardNewlines, char* errorMsg) {
 
     if (discardNewlines) {
-        *tok = TokenNextDiscardNewlines(&(pc->tc));
+        *tok = TokenNextDiscardNewlines(pc->tc);
     }
-    else *tok = TokenNext(&(pc->tc));
+    else *tok = TokenNext(pc->tc);
     if (tok->type != type) {
         if (errorMsg == NULL) {
             char msg[100];
@@ -335,190 +426,315 @@ static void ForceParseToken(struct parserContext* pc, struct token* tok,
 }
 
 
-//TODO make expr parser
-static bool TryParseIntConstantExpr(struct parserContext* pc, int* intConst, bool discardNewlines) {
+struct operand* operandEmpty() {
+    struct operand* op = malloc(sizeof(*op));
+    CheckPtr(op);
+    *op = (struct operand){0};
+    op->tok = TOKEN_UNDEFINED;
+    return op;
+}
+
+
+struct operand* operandIntConstNoToken(long long intVal) {
+    struct operand* op = operandEmpty();
+    op->tok = TOKEN_UNDEFINED;
+    op->type = intConstType;
+    op->valKnown = true;
+    op->intVal = intVal;
+    op->operation = OPERATION_NOOP;
+    return op;
+
+}
+
+
+struct operand* operandIntConst(struct token valueTok) {
+    struct operand* op = operandIntConstNoToken(StrToLongLongVal(valueTok.str));
+    op->tok = valueTok;
+    return op;
+}
+
+
+struct operand* operandFloatConst(struct token valueTok) {
+    struct operand* op = operandEmpty();
+    op->tok = valueTok;
+    op->type = floatConstType;
+    op->valKnown = true;
+    op->floatVal = StrToDoubleVal(valueTok.str);
+    op->operation = OPERATION_NOOP;
+    return op;
+}
+
+
+struct operand* operandCharConst(struct token valueTok) {
+    struct operand* op = operandEmpty();
+    op->tok = valueTok;
+    op->type = charConstType;
+    op->valKnown = true;
+    op->intVal = StrToCharVal(valueTok.str);
+    op->operation = OPERATION_NOOP;
+    return op;
+}
+
+
+struct operand* operandStringConst(struct token valueTok) {
+    struct operand* op = operandEmpty();
+    op->tok = valueTok;
+    op->type = stringConstType;
+    op->valKnown = true;
+    op->strVal = StrToStringVal(valueTok.str);
+    op->operation = OPERATION_NOOP;
+    return op;
+}
+
+
+bool parseIntConstantExpr(struct parserContext* pc, struct operand** op, bool discardNewlines) {
+    //TODO parse expr not just single operand
     struct token tok;
-    if (TryParseToken(pc, &tok, TOKEN_INT, discardNewlines)) {
-        //TODO atoi the int and set instConst to it
-        (void)intConst;
-        return true;
-    }
-    else if (TryParseToken(pc, &tok, TOKEN_IDENTIFIER, discardNewlines)) {
-        //TODO fetch int constant from constant list
-        (void)intConst;
-        return true;
-    }
+    parseToken(pc, &tok, TOKEN_INT, discardNewlines, NULL);
+    *op = operandIntConst(tok);
     return false;
 }
 
 
-struct parserContext* parserContextListGetByFileName(struct parserContextList pcl, struct str fileName) {
-    for (int i = 0; i < pcl.len; i++) {
-        if (StrEqual(pcl.ptr[i].fileName, fileName)) return pcl.ptr + i;
-    }
-    Error("invalid file name");
-    exit(EXIT_FAILURE); //unreachable
+struct parserContext* getImportPc(struct parserContext* head, struct str alias) {
+    struct variable aliasVar = pcGetVar(head, alias);
+    return pcListGet(head->parsedFiles, aliasVar.value->strVal);
 }
 
 
-struct parserContext* parserContextListGetByIndex(struct parserContextList pcl, int index) {
-    if (index < 0 || index >= pcl.len) Error("index out of bounds");
-    return pcl.ptr + index;
-}
-
-
-
-static bool ImportAliasExists(struct strList importAliases, struct str name) {
-    for (int i = 0; i < importAliases.len; i++) {
-        if (StrEqual(importAliases.ptr[i], name)) return true;
-    }
-    return false;
-}
-
-
-static struct parserContext GetImportPc(struct parserContext head, struct str alias) {
-
-    for (int i = 0; i < StrListLen(head.importAliases); i++) {
-        if (StrEqual(alias, StrListGet(head.importAliases, i))) {
-            return *(parserContextListGetByFileName(*(head.parsedFiles), StrListGet(head.importNames, i)));
-        }
-    }
-    Error("invalid alias");
-    exit(EXIT_FAILURE);
-}
-
-
-bool TryParseImportAlias(struct parserContext* pc, struct parserContext* aliasImport, struct token* aliasTok) {
+bool tryParseImportAlias(struct parserContext* pc, struct parserContext** import, struct token* aliasTok) {
     struct token tok;
-    if (!TryParseToken(pc, &tok, TOKEN_IDENTIFIER, false) || !ImportAliasExists(pc->importAliases, tok.str)) {
-        TokenUnget(&(pc->tc));
+    if (!tryParseToken(pc, &tok, TOKEN_IDENTIFIER, false)) return false;
+    if (!pcContainsVar(pc, tok.str)) {
+        TokenUnget(pc->tc);
         return false;
     }
     *aliasTok = tok;
-    *aliasImport = GetImportPc(*pc, tok.str);
+    *import = getImportPc(pc, tok.str);
     return true;
 }
 
 
-struct type ParseTypeIdentifier(struct parserContext* pc) {
-    bool alias;
-    struct token aliasTok;
+struct type parseTypeIdentifier(struct parserContext* pc, struct str* name, struct token* typeToken) {
+    bool import;
     struct token tok;
-    struct parserContext import;
     struct parserContext* typeSource = pc;
-
-    if ((alias = TryParseImportAlias(pc, &import, &aliasTok))) {
-        ForceParseToken(pc, &tok, TOKEN_DOT, false, "expected .");
-        typeSource = &import;
+    if ((import = tryParseImportAlias(pc, &typeSource, typeToken))) {
+        parseToken(pc, &tok, TOKEN_DOT, false, "expected .");
     }
+    parseToken(pc, &tok, TOKEN_IDENTIFIER, false, "unknown type");
+    *name = tok.str;
+    if (import) *typeToken = TokenExtend(*typeToken, tok);
+    else *typeToken = tok;
 
-    ForceParseToken(pc, &tok, TOKEN_IDENTIFIER, false, "expected type identifier");
-    if (alias) aliasTok = TokenExtend(aliasTok, tok);
-    else aliasTok = tok;
-    struct type t;
-    if (typeListExists(typeSource->publTypes, tok.str)) t = typeListGet(typeSource->publTypes, tok.str);
-    else if (typeListExists(typeSource->privTypes, tok.str)) {
-        if (alias) SyntaxErrorInvalidToken(aliasTok, "type is private");
-        t = typeListGet(typeSource->privTypes, tok.str);
+    if (typeListContains(&(typeSource->publTypes), tok.str)) {
+        return typeListGet(&(typeSource->publTypes), tok.str);
     }
-    else SyntaxErrorInvalidToken(aliasTok, "unknown type");
-    t.tok = aliasTok;
+    else if (!import && typeListContains(&(typeSource->privTypes), tok.str)) {
+        return typeListGet(&(typeSource->privTypes), tok.str);
+    }
+    else SyntaxErrorInvalidToken(*typeToken, "unknown type");
+    exit(EXIT_FAILURE); //unreachable
+}
+
+
+void parseTypeIsStructInstantiation(struct parserContext* pc, struct type* t) {
+    struct token tok;
+    if (t->bType == BASETYPE_STRUCT && tryParseToken(pc, &tok, TOKEN_CURLYBRACKET_OPEN, false)) {
+        parseToken(pc, &tok, TOKEN_CURLYBRACKET_CLOSE, false, NULL);
+        t->tok = TokenExtend(t->tok, tok);
+        t->ref = false;
+    }
+}
+
+
+void parseTypeIsArray(struct parserContext* pc, struct type* t) {
+    struct token tok;
+    bool isArray = false;
+    while (tryParseToken(pc, &tok, TOKEN_SQUAREBRACKET_OPEN, false)) {
+        isArray = true;
+        if (tryParseToken(pc, &tok, TOKEN_SQUAREBRACKET_CLOSE, false)) {
+            opPtrListAppend(&(t->arrLenghts), operandIntConstNoToken(ARRAY_REF));
+            t->tok = TokenExtend(t->tok, tok);
+        }
+        else {
+            struct operand* arrLen;
+            parseIntConstantExpr(pc, &arrLen, false);
+            opPtrListAppend(&(t->arrLenghts), arrLen);
+            parseToken(pc, &tok, TOKEN_SQUAREBRACKET_CLOSE, false, NULL);
+            t->tok = TokenExtend(t->tok, tok);
+        }
+    }
+    if (isArray) {
+        t->arrBType = t->bType;
+        t->bType = BASETYPE_ARRAY;
+        if (t->arrLenghts.ptr[0]->intVal != ARRAY_REF) t->ref = false;
+    }
+}
+
+
+struct type parseType(struct parserContext* pc) {
+    struct token tok;
+    struct str name;
+    struct type t = parseTypeIdentifier(pc, &name, &tok);
+    t.name = name;
+    t.tok = tok;
+    parseTypeIsStructInstantiation(pc, &t);
+    parseTypeIsArray(pc, &t);
     return t;
 }
 
 
-struct type ParseType(struct parserContext* pc) {
-    struct type t = ParseTypeIdentifier(pc);
+struct variable parseVar(struct parserContext* pc, struct token* varTok) {
+    bool alias;
     struct token tok;
-    if (TryParseToken(pc, &tok, TOKEN_SQUAREBRACKET_OPEN, false)) {
-        int arrLen = 0;
-        bool ref = true;
-        if (TryParseIntConstantExpr(pc, &arrLen, false)) ref = false;
-        ForceParseToken(pc, &tok, TOKEN_SQUAREBRACKET_CLOSE, false, NULL);
-        struct type arrT = ArrType(t, arrLen, ref);
-        arrT.tok = t.tok;
-        arrT.tok = TokenExtend(arrT.tok, tok);
-        return arrT;
+    struct parserContext* import;
+    struct parserContext* varSource = pc;
+    if ((alias = tryParseImportAlias(pc, &import, varTok))) {
+        parseToken(pc, &tok, TOKEN_DOT, false, "expected .");
+        varSource = import;
     }
-    else if (t.bType == BASETYPE_STRUCT && TryParseToken(pc, &tok, TOKEN_CURLYBRACKET_OPEN, false)) {
-        t.ref = false;
-        ForceParseToken(pc, &tok, TOKEN_CURLYBRACKET_CLOSE, false, NULL);
-        t.tok = TokenExtend(t.tok, tok);
+
+    parseToken(pc, &tok, TOKEN_IDENTIFIER, false, "unknown variable");
+    if (alias) *varTok = TokenExtend(*varTok, tok);
+    else *varTok = tok;
+
+    if (varListContains(&(varSource->publVarsAndConsts), tok.str)) {
+        return varListGet(&(varSource->publVarsAndConsts), tok.str);
     }
-    return t;
+    else if (!alias && varListContains(&(varSource->privVarsAndConsts), tok.str)) {
+        return varListGet(&(varSource->privVarsAndConsts), tok.str);
+    }
+    else SyntaxErrorInvalidToken(*varTok, "unknown variable");
+    exit(EXIT_FAILURE); //unreachable
 }
 
 
-static void ParseStructTypedefMember(struct parserContext* pc, struct str structName, struct operandList* list) {
-    struct token tok;
-    ForceParseToken(pc, &tok, TOKEN_IDENTIFIER, false, "expected variable identifier");
-    if (operandListExists(*list, tok.str)) SyntaxErrorInvalidToken(tok, "duplicate member name");
-    struct type t = ParseType(pc);
-    if (!t.ref && StrEqual(structName, t.name)) {
-        SyntaxErrorInvalidToken(t.tok, "structures may not instantiate themselves");
+struct operand* parseOperand(struct parserContext* pc, struct varList* localVars) {
+    struct token tok = TokenNext(pc->tc);
+    if (varListContains(localVars, tok.str)) return varListGet(localVars, tok.str).value;
+    else if (tok.type == TOKEN_IDENTIFIER) {
+        TokenUnget(pc->tc);
+        return parseVar(pc, &tok).value;
     }
-    if (
-            t.bType == BASETYPE_STRUCT && !t.ref && t.advanced != NULL &&
-            typeListExists(((struct structTypeData*)t.advanced)->embeddedStructs, structName)) {
-
-        SyntaxErrorInvalidToken(t.tok, "circular struct instantiation");
+    else {
+        if (tok.type == TOKEN_INT) return operandIntConst(tok);
+        if (tok.type == TOKEN_FLOAT) return operandFloatConst(tok);
+        if (tok.type == TOKEN_CHAR) return operandCharConst(tok);
+        if (tok.type == TOKEN_STRING) return operandStringConst(tok);
+        SyntaxErrorInvalidToken(tok, "expected variable identifier or constant literal");
     }
-    operandListAppend(list, OperandNew(tok.str, t));
+    exit(EXIT_FAILURE); //unreachable
 }
 
 
-struct operandList ParseStructTypedefMembers(struct parserContext* pc, struct str structName) {
-    struct token tok;
-    ForceParseToken(pc, &tok, TOKEN_CURLYBRACKET_OPEN, false, NULL);
-    struct operandList list = OperandListNew();
-    if (TryParseToken(pc, &tok, TOKEN_CURLYBRACKET_CLOSE, true)) return list;
-    ParseStructTypedefMember(pc, structName, &list);
-    while (TryParseToken(pc, &tok, TOKEN_COMMA, false)) {
-        TokenDiscardNewlines(&(pc->tc));
-        ParseStructTypedefMember(pc, structName, &list);
+enum operationType parseOperator(struct parserContext* pc) {
+    struct token tok = TokenNext(pc->tc);
+    switch(tok.type) {
+        case TOKEN_IDENTIFIER: return OPERATION_TYPECAST; //TODO func call
+        case TOKEN_MUL: return OPERATION_MUL;
+        case TOKEN_DIV: return OPERATION_DIV;
+        case TOKEN_ADD: return OPERATION_ADD;
+        case TOKEN_SUB: return OPERATION_SUB;
+        case TOKEN_MODULO: return OPERATION_MODULO;
+        case TOKEN_INCREMENT: return OPERATION_INCREMENT;
+        case TOKEN_DECREMENT: return OPERATION_DECREMENT;
+        case TOKEN_LOGICAL_EQUALS: return OPERATION_LOGICAL_EQUALS;
+        case TOKEN_LOGICAL_NOT: return OPERATION_LOGICAL_NOT;
+        case TOKEN_LOGICAL_AND: return OPERATION_LOGICAL_AND;
+        case TOKEN_LOGICAL_OR: return OPERATION_LOGICAL_OR;
+        case TOKEN_LOGICAL_LESS_THAN: return OPERATION_LOGICAL_LESS_THAN;
+        case TOKEN_LOGICAL_LESS_THAN_OR_EQUAL: return OPERATION_LOGICAL_LESS_THAN_OR_EQUAL;
+        case TOKEN_LOGICAL_GREATER_THAN: return OPERATION_LOGICAL_GREATER_THAN;
+        case TOKEN_LOGICAL_GREATER_THAN_OR_EQUAL: return OPERATION_LOGICAL_GREATER_THAN_OR_EQUAL;
+        case TOKEN_BITWISE_AND: return OPERATION_BITWISE_AND;
+        case TOKEN_BITWISE_OR: return OPERATION_BITWISE_OR;
+        case TOKEN_BITWISE_XOR: return OPERATION_BITWISE_XOR;
+        case TOKEN_BITWISE_COMPLEMENT: return OPERATION_BITWISE_COMPLEMENT;
+        case TOKEN_BITSHIFT_LEFT: return OPERATION_BITSHIFT_LEFT;
+        case TOKEN_BITSHIFT_RIGHT: return OPERATION_BITSHIFT_RIGHT;
+        default: SyntaxErrorInvalidToken(tok, "expected operator"); exit(EXIT_FAILURE);
     }
-    ForceParseToken(pc, &tok, TOKEN_CURLYBRACKET_CLOSE, true, "expected \",\" or \"}\"");
-    return list;
 }
 
 
-struct type ParseStructTypedef(struct parserContext* pc, struct str structName) {
-    TokenDiscardNewlines(&(pc->tc));
-    struct operandList members = ParseStructTypedefMembers(pc, structName);
-    return StructType(members);
+struct variable varNew(struct token nameTok, struct type t) {
+    struct variable v;
+    v.name = nameTok.str;
+    v.tok = nameTok;
+    v.type = t;
+    v.value = NULL;
+    return v;
 }
 
 
-static void ParseVocabTypedefMember(struct parserContext* pc, struct strList* list) {
+void parseStructTypeDefMember(struct parserContext* pc, struct str structName, struct varList* members) {
     struct token tok;
-    ForceParseToken(pc, &tok, TOKEN_IDENTIFIER, true, "expected word");
+    parseToken(pc, &tok, TOKEN_IDENTIFIER, true, "expected variable identifier");
+    if (varListContains(members, tok.str)) SyntaxErrorInvalidToken(tok, "duplicate member name");
+    struct type t = parseType(pc);
+    if (t.bType == BASETYPE_STRUCT && !(t.ref)) {
+        if (StrEqual(structName, t.name)) {
+            SyntaxErrorInvalidToken(t.tok, "structures may not instantiate themselves");
+        }
+        else if (typeListContains(&(t.def->embeddedStructs), structName)) {
+            SyntaxErrorInvalidToken(t.tok, "circular struct instantiation");
+        }
+    }
+    varListAppend(members, varNew(tok, t));
+}
+
+
+struct varList parseStructTypeDefMembers(struct parserContext* pc, struct str structName) {
+    struct token tok;
+    parseToken(pc, &tok, TOKEN_CURLYBRACKET_OPEN, false, NULL);
+    struct varList members = varListNew();
+    if (tryParseToken(pc, &tok, TOKEN_CURLYBRACKET_CLOSE, true)) return members;
+    parseStructTypeDefMember(pc, structName, &members);
+    while (tryParseToken(pc, &tok, TOKEN_COMMA, false)) {
+        parseStructTypeDefMember(pc, structName, &members);
+    }
+    parseToken(pc, &tok, TOKEN_CURLYBRACKET_CLOSE, true, "expected \",\" or \"}\"");
+    return members;
+}
+
+
+void parseStructTypeDef(struct parserContext* pc, struct token nameTok) {
+    struct varList members = parseStructTypeDefMembers(pc, nameTok.str);
+    updateType(pc, structType(nameTok, members));
+}
+
+
+void parseVocabTypeDefMember(struct parserContext* pc, struct strList* list) {
+    struct token tok;
+    parseToken(pc, &tok, TOKEN_IDENTIFIER, true, "expected word");
     if (StrListExists(list, tok.str)) SyntaxErrorInvalidToken(tok, "duplicate vocabulary word");
     StrListAppend(list, tok.str);
 }
 
 
-struct strList ParseVocabTypedefMembers(struct parserContext* pc) {
+struct strList parseVocabTypeDefMembers(struct parserContext* pc) {
     struct token tok;
-    ForceParseToken(pc, &tok, TOKEN_CURLYBRACKET_OPEN, false, NULL);
-    struct strList list = StrListNew();
-    ParseVocabTypedefMember(pc, &list);
-    while (TryParseToken(pc, &tok, TOKEN_COMMA, false)) {
-        TokenDiscardNewlines(&(pc->tc));
-        ParseVocabTypedefMember(pc, &list);
+    parseToken(pc, &tok, TOKEN_CURLYBRACKET_OPEN, false, NULL);
+    struct strList members = StrListNew();
+    parseVocabTypeDefMember(pc, &members);
+    while (tryParseToken(pc, &tok, TOKEN_COMMA, false)) {
+        TokenDiscardNewlines(pc->tc);
+        parseVocabTypeDefMember(pc, &members);
     }
-    ForceParseToken(pc, &tok, TOKEN_CURLYBRACKET_CLOSE, true, "expected \",\" or \"}\"");
-    return list;
+    parseToken(pc, &tok, TOKEN_CURLYBRACKET_CLOSE, true, "expected \",\" or \"}\"");
+    return members;
 }
 
 
-struct type ParseVocabTypedef(struct parserContext* pc) {
-    struct strList words = ParseVocabTypedefMembers(pc);
-    return VocabType(words);
+void parseVocabTypeDef(struct parserContext* pc, struct token nameTok) {
+    struct strList words = parseVocabTypeDefMembers(pc);
+    updateType(pc, vocabType(nameTok, words));
 }
 
 
-struct type ParseTypeNoInstantiation(struct parserContext* pc) {
-    struct type t = ParseType(pc);
+struct type parseTypeArrAndStructMustBeRef(struct parserContext* pc) {
+    struct type t = parseType(pc);
     if (t.bType == BASETYPE_ARRAY && !t.ref) {
         SyntaxErrorInvalidToken(t.tok, "array must be a reference");
     }
@@ -529,326 +745,331 @@ struct type ParseTypeNoInstantiation(struct parserContext* pc) {
 }
 
 
-struct type ParseFuncArgType(struct parserContext* pc) {
+struct type parseFuncArgType(struct parserContext* pc) {
     bool mut = false;
     struct token tok;
-    if (TryParseToken(pc, &tok, TOKEN_MUT, false)) mut = true;
-    struct type t = ParseTypeNoInstantiation(pc);
-    if (mut) {
-        TypeSetMutTrue(&t);
-        if (t.bType != BASETYPE_ARRAY && t.bType != BASETYPE_STRUCT) {
-            SyntaxErrorInvalidToken(t.tok, "only arrays or structures may be declared mutable in function args");
-        }
+    if (tryParseToken(pc, &tok, TOKEN_MUT, true)) mut = true;
+    struct type t = parseTypeArrAndStructMustBeRef(pc);
+    if (!mut) return t;
+    if (t.bType != BASETYPE_ARRAY && t.bType != BASETYPE_STRUCT) {
+        SyntaxErrorInvalidToken(t.tok, "only arrays or structures may be declared mutable in function args");
     }
+    t.mut = true;
     return t;
 }
 
 
-struct typeList ParseFuncTypedefArgs(struct parserContext* pc) {
-    struct typeList list = TypeListNew();
+struct varList parseFuncTypeDefArgs(struct parserContext* pc) {
+    struct varList args = varListNew();
     struct token tok;
 
-    ForceParseToken(pc, &tok, TOKEN_PAREN_OPEN, true, NULL);
-    if (TryParseToken(pc, &tok, TOKEN_PAREN_CLOSE, true)) return list;
-    TypeListAppend(&list, ParseFuncArgType(pc));
+    parseToken(pc, &tok, TOKEN_PAREN_OPEN, true, NULL);
+    if (tryParseToken(pc, &tok, TOKEN_PAREN_CLOSE, true)) return args;
+    varListAppend(&args, varNew(TOKEN_UNDEFINED, parseFuncArgType(pc)));
 
-    while (TryParseToken(pc, &tok, TOKEN_COMMA, false)) {
-        TokenDiscardNewlines(&(pc->tc));
-        TypeListAppend(&list, ParseFuncArgType(pc));
+    while (tryParseToken(pc, &tok, TOKEN_COMMA, false)) {
+        varListAppend(&args, varNew(TOKEN_UNDEFINED, parseFuncArgType(pc)));
     }
 
-    ForceParseToken(pc, &tok, TOKEN_PAREN_CLOSE, true, "expected \",\" or \")\"");
-    return list;
+    parseToken(pc, &tok, TOKEN_PAREN_CLOSE, true, "expected \",\" or \")\"");
+    return args;
 }
 
 
-struct typeList ParseFuncTypedefRets(struct parserContext* pc) {
-    struct typeList list = TypeListNew();
+struct typeList parseFuncRets(struct parserContext* pc) {
+    struct typeList rets = typeListNew();
     struct token tok;
 
-    ForceParseToken(pc, &tok, TOKEN_PAREN_OPEN, true, NULL);
-    if (TryParseToken(pc, &tok, TOKEN_PAREN_CLOSE, true)) return list;
-    TypeListAppend(&list, ParseType(pc));
+    parseToken(pc, &tok, TOKEN_PAREN_OPEN, true, NULL);
+    if (tryParseToken(pc, &tok, TOKEN_PAREN_CLOSE, true)) return rets;
+    typeListAppend(&rets, parseType(pc));
 
-    while (TryParseToken(pc, &tok, TOKEN_COMMA, false)) {
-        TokenDiscardNewlines(&(pc->tc));
-        TypeListAppend(&list, ParseType(pc));
+    while (tryParseToken(pc, &tok, TOKEN_COMMA, false)) {
+        TokenDiscardNewlines(pc->tc);
+        typeListAppend(&rets, parseType(pc));
     }
 
-    ForceParseToken(pc, &tok, TOKEN_PAREN_CLOSE, true, "expected \",\" or \")\"");
-    return list;
+    parseToken(pc, &tok, TOKEN_PAREN_CLOSE, true, "expected \",\" or \")\"");
+    return rets;
 }
 
 
-struct type ParseFuncTypedef(struct parserContext* pc) {
-    struct typeList args = ParseFuncTypedefArgs(pc);
-    struct typeList rets = ParseFuncTypedefRets(pc);
-    return FuncType(args, rets);
+void parseFuncTypeDef(struct parserContext* pc, struct token nameTok) {
+    struct varList args = parseFuncTypeDefArgs(pc);
+    struct typeList rets = parseFuncRets(pc);
+    updateType(pc, funcType(nameTok, args, rets));
 }
 
 
-static struct type ParseTypedefSwitch(struct parserContext* pc, struct str typeName) {
-    struct token tok = TokenNext(&(pc->tc));
-    switch (tok.type) {
-        case TOKEN_IDENTIFIER: TokenUnget(&(pc->tc)); return ParseType(pc);
-        case TOKEN_STRUCT: return ParseStructTypedef(pc, typeName);
-        case TOKEN_VOCAB: return ParseVocabTypedef(pc);
-        case TOKEN_FUNC: return ParseFuncTypedef(pc);
-        default: SyntaxErrorInvalidToken(tok, "not a type"); exit(EXIT_FAILURE);
-    }
-}
-
-
-void ParseTypedef(struct parserContext* pc) {
-    struct token tok;
-    ForceParseToken(pc, &tok, TOKEN_IDENTIFIER, false, "expected type name");
-    struct type oldType = ParseTypedefSwitch(pc, tok.str);
-    struct type newType = AliasType(oldType, tok.str);
-    UpdateType(pc, newType);
-    ForceParseToken(pc, &tok, TOKEN_NEWLINE, false, NULL);
-}
-
-
-struct parserContextList parserContextListNew() {
-    struct parserContextList pcl;
-    pcl.len = 0;
-    pcl.cap = 0;
-    pcl.ptr = NULL;
-    return pcl;
-}
-
-
-void parserContextListAppend(struct parserContextList* pcl, struct parserContext pc) {
-    if (pcl->len >= pcl->cap)  {
-        pcl->cap+=100;
-        pcl->ptr = realloc(pcl->ptr, sizeof(struct parserContext) * pcl->cap);
-        CheckPtr(pcl->ptr);
-    }
-    pcl->ptr[pcl->len] = pc;
-    pcl->len++;
-}
-
-
-bool parserContextListExistsFileName(struct parserContextList* pcl, struct str fileName) {
-    for (int i = 0; i < pcl->len; i++) {
-        if (StrEqual(pcl->ptr[i].fileName, fileName)) return true;
+bool typeDependantsContainsInternal(struct typePtrList* searched, struct type* head, struct type* searchFor) {
+    for (int i = 0; i < head->dependants.len; i++) {
+        if (head->dependants.ptr[i] == searchFor) return true;
+        if (typePtrListContainsPtr(searched, head->dependants.ptr[i])) continue;
+        typePtrListAppend(searched, head->dependants.ptr[i]);
+        if (typeDependantsContainsInternal(searched, head->dependants.ptr[i], searchFor)) return true;
     }
     return false;
 }
 
 
-struct parserContext parserContextNew(struct str fileName, struct parserContextList* parsedFiles) {
+bool typeDependantsContains(struct type* searchIn, struct type* searchFor) {
+    struct typePtrList searched = typePtrListNew();
+    return typeDependantsContainsInternal(&searched, searchIn, searchFor);
+}
+
+
+bool baseTypeComplete(struct type* t) {
+    if (t->bType == BASETYPE_ARRAY) {
+        if (t->arrBType != BASETYPE_PLACEHOLDER) return true;
+    }
+    else if (t->bType != BASETYPE_PLACEHOLDER) return true;
+    return false;
+}
+
+
+struct type* parseAliasReferenceTypePtr(struct parserContext* pc, struct token* refToken) {
+    bool import;
+    struct token tok;
+    struct parserContext* typeSource = pc;
+    if ((import = tryParseImportAlias(pc, &typeSource, refToken))) {
+        parseToken(pc, &tok, TOKEN_DOT, false, NULL);
+    }
+    parseToken(pc, &tok, TOKEN_IDENTIFIER, false, "unknown type");
+    if (import) *refToken = TokenExtend(*refToken, tok);
+    else *refToken = tok;
+
+    if (typeListContains(&(typeSource->publTypes), tok.str)) {
+        return typeListGetPtr(&(typeSource->publTypes), tok.str);
+    }
+    else if (!import && typeListContains(&(typeSource->privTypes), tok.str)) {
+        return typeListGetPtr(&(typeSource->privTypes), tok.str);
+    }
+    else SyntaxErrorInvalidToken(*refToken, "unknown type");
+    exit(EXIT_FAILURE); //unreachable
+}
+
+
+void parseAliasTypeDef(struct parserContext* pc, struct token nameTok) {
+    struct token refTok;
+    struct type* referenced = parseAliasReferenceTypePtr(pc, &refTok);
+    struct type* alias = pcGetTypePtr(pc, nameTok.str);
+    if (baseTypeComplete(referenced)) {
+        updateType(pc, aliasType(nameTok, *referenced, alias->dependants));
+    }
+    else if (typeDependantsContains(alias, referenced)) {
+        SyntaxErrorInvalidToken(refTok, "circular type definition");
+    }
+    else typePtrListAppend(&(referenced->dependants), alias);
+}
+
+
+void typeDependantsComplete(struct type* t) {
+    for (int i = t->dependants.len -1; i >= 0; i--) {
+        struct type* dep = t->dependants.ptr[i];
+        *dep = aliasType(dep->tok, *t, dep->dependants);
+        t->dependants.len--;
+        typeDependantsComplete(dep);
+    }
+}
+
+
+void parseTypeDefComplete(struct parserContext* pc) {
+    struct token nameTok;
+    parseToken(pc, &nameTok, TOKEN_IDENTIFIER, false, "expected type name");
+
+    struct token tok;
+    tok = TokenNext(pc->tc);
+    switch (tok.type) {
+        case TOKEN_IDENTIFIER: TokenUnget(pc->tc); parseTypeArrAndStructMustBeRef(pc); break;
+        case TOKEN_STRUCT: parseStructTypeDef(pc, nameTok); break;
+        case TOKEN_VOCAB: parseVocabTypeDef(pc, nameTok); break;
+        case TOKEN_FUNC: parseFuncTypeDef(pc, nameTok); break;
+        default: SyntaxErrorInvalidToken(tok, "not a type"); exit(EXIT_FAILURE);
+    }
+    parseToken(pc, &tok, TOKEN_NEWLINE, false, NULL);
+}
+
+
+struct parserContext parserContextNew(struct str fileName, struct pcList* parsedFiles) {
     struct parserContext pc;
-    pc.parsedFiles = parsedFiles;
     pc.fileName = fileName;
-    pc.importNames = StrListNew();
-    pc.importAliases = StrListNew();
     pc.tc = TokenContextNew(fileName);
-    pc.publTypes = TypeListNew();
-    pc.privTypes = TypeListNew();
-    pc.publOps = OperandListNew();
-    pc.privOps = OperandListNew();
-    AppendBaseTypes(&(pc.privTypes));
+    pc.parsedFiles = parsedFiles;
+    pc.publTypes = typeListNew();
+    pc.privTypes = typeListNew();
+    pc.publVarsAndConsts = varListNew();
+    pc.privVarsAndConsts = varListNew();
+    appendVanillaTypes(&(pc.privTypes));
     return pc;
 }
 
 
-void ParseFileFirstPass(struct parserContext* pc);
+void parseFileFirstPass(struct parserContext* pc);
 
 
-void ParseImportFirstPass(struct parserContext* pc) {
-    struct token nameTok;
-    struct token aliasTok;
-    ForceParseToken(pc, &nameTok, TOKEN_STRING, false, "expected import file name string");
-    struct str name = StrSlice(nameTok.str, 1, StrGetLen(nameTok.str) -1);
-    if (StrListExists(&(pc->importNames), name)) {
-        SyntaxErrorInvalidToken(nameTok, "file already imported");
+bool pcContainsFileName(struct parserContext* pc, struct str fileName) {
+    for (int i = 0; i < pc->publVarsAndConsts.len; i++) {
+        struct variable var = pc->publVarsAndConsts.ptr[i];
+        if(var.type.bType == BASETYPE_IMPORT  && StrEqual(var.value->strVal, fileName)) {
+            return true;
+        }
     }
-    ForceParseToken(pc, &aliasTok, TOKEN_IDENTIFIER, false, "expected import alias");
-    if (StrListExists(&(pc->importAliases), aliasTok.str)) {
-        SyntaxErrorInvalidToken(aliasTok, "file alias already in use");
-    }
-    if (!parserContextListExistsFileName(pc->parsedFiles, name)) {
-        parserContextListAppend(pc->parsedFiles, parserContextNew(name, pc->parsedFiles));
-        struct parserContext* importPc = parserContextListGetByFileName(*(pc->parsedFiles), name);
-        ParseFileFirstPass(importPc);
-    }
-    StrListAppend(&(pc->importNames), name);
-    StrListAppend(&(pc->importAliases), aliasTok.str);
+    return false;
 }
 
 
-void ParseGlobalLevel(struct parserContext* pc) {
-    struct token tok = TokenNextDiscardNewlines(&(pc->tc));
+void parseImportFirstPass(struct parserContext* pc) {
+    struct token fileNameTok;
+    struct token aliasTok;
+    parseToken(pc, &fileNameTok, TOKEN_STRING, false, "expected import file name string");
+    struct str fileName = StrSlice(fileNameTok.str, 1, StrGetLen(fileNameTok.str) - 1);
+    if (StrEqual(fileName, pc->fileName)) {
+        SyntaxErrorInvalidToken(fileNameTok, "files may not import themselves");
+    }
+    if (pcContainsFileName(pc, fileName)) {
+        SyntaxErrorInvalidToken(fileNameTok, "file already imported in this name space");
+    }
+    parseToken(pc, &aliasTok, TOKEN_IDENTIFIER, false, "expected import alias");
+    if (pcContainsVar(pc, aliasTok.str)) {
+        SyntaxErrorInvalidToken(aliasTok, "file alias already in use");
+    }
+    if (!pcListContains(pc->parsedFiles, fileName)) {
+        pcListAppend(pc->parsedFiles, parserContextNew(fileName, pc->parsedFiles));
+        struct parserContext* importPc = pcListGet(pc->parsedFiles, fileName);
+        parseFileFirstPass(importPc);
+    }
+    struct variable aliasVar = varNew(aliasTok, importType());
+    aliasVar.value = operandStringConst(fileNameTok);
+    pcAddVar(pc, aliasVar);
+}
+
+
+void parseGlobalLevel(struct parserContext* pc) {
+    struct token tok = TokenNextDiscardNewlines(pc->tc);
     switch (tok.type) {
-        case TOKEN_TYPE: ParseTypedef(pc); break; //typedefs are reparsed; this is defined behaviour
-        case TOKEN_FUNC: break; //func headers are reparsed; this is defined behaviour
+        case TOKEN_TYPE: break;
+        case TOKEN_FUNC: break;
         default: //SyntaxErrorInvalidToken(tok, NULL); 
     }
 }
 
 
-static struct type TypePlaceholder(struct token name, enum baseType bType) {
-    struct type t;
-    t.ref = true;
-    t.name = name.str;
-    t.bType = bType;
-    t.advanced = NULL;
-    t.tok = name;
-    return t;
-}
-
-
-void ParseTypePlaceholder(struct parserContext* pc) {
+void parseTypePlaceholder(struct parserContext* pc) {
     struct token nameTok;
-    ForceParseToken(pc, &nameTok, TOKEN_IDENTIFIER, false, "expected type name");
-    struct token tok;
-    tok = TokenNext(&(pc->tc));
-    switch (tok.type) {
-        case TOKEN_IDENTIFIER:
-            TokenUnget(&(pc->tc));
-            AddType(TypePlaceholder(nameTok, BASETYPE_INT32), pc);
-            break;
+    parseToken(pc, &nameTok, TOKEN_IDENTIFIER, false, "expected type name");
+    pcAddType(pc, placeholderType(nameTok));
+}
 
-        case TOKEN_FUNC: AddType(TypePlaceholder(nameTok, BASETYPE_FUNC), pc); break;
-        case TOKEN_STRUCT: AddType(TypePlaceholder(nameTok, BASETYPE_STRUCT), pc); break;
-        case TOKEN_VOCAB: AddType(TypePlaceholder(nameTok, BASETYPE_VOCAB), pc); break;
-        default: TokenUnget(&(pc->tc)); SyntaxErrorInvalidToken(tok, "invalid type");
+
+void parseTypePlaceholdersAndImportsFirstPass(struct parserContext* pc) {
+    struct token tok;
+    while ((tok = TokenNext(pc->tc)).type != TOKEN_EOF) {
+        if (tok.type == TOKEN_TYPE) parseTypePlaceholder(pc);
+        else if (tok.type == TOKEN_IMPORT) parseImportFirstPass(pc);
     }
 }
 
 
-void ParseTypePlaceholdersAndImportsFirstPass(struct parserContext* pc) {
-    struct token tok;
-    while ((tok = TokenNext(&(pc->tc))).type != TOKEN_EOF) {
-        if (tok.type == TOKEN_TYPE) ParseTypePlaceholder(pc);
-        else if (tok.type == TOKEN_IMPORT) ParseImportFirstPass(pc);
-    }
-}
-
-
-struct operand ParseVarDeclaration(struct parserContext* pc) {
-    struct token tok;
-    ForceParseToken(pc, &tok, TOKEN_IDENTIFIER, false, "expected variable name");
-    return OperandNew(tok.str, ParseType(pc));
-}
-
-
-void ParseFuncArgVarDeclaration(struct parserContext* pc, struct operandList* args) {
-    struct token tok;
-    ForceParseToken(pc, &tok, TOKEN_IDENTIFIER, false, "expected variable name");
-    if (isPublic(tok.str)) SyntaxErrorInvalidToken(tok, "local variables may not be capitalized");
-    if (operandListExists(*args, tok.str)) SyntaxErrorInvalidToken(tok, "duplicate argument name");
-    operandListAppend(args, OperandNew(tok.str, ParseFuncArgType(pc)));
-}
-
-
-struct operandList ParseFuncArgs(struct parserContext* pc) {
-    struct operandList args = OperandListNew();
-
-    struct token tok;
-    ForceParseToken(pc, &tok, TOKEN_PAREN_OPEN, false, NULL);
-    if (TryParseToken(pc, &tok, TOKEN_PAREN_CLOSE, false)) return args;
-
-    ParseFuncArgVarDeclaration(pc, &args);
-    while (!TryParseToken(pc, &tok, TOKEN_PAREN_CLOSE, false)) {
-        ForceParseToken(pc, &tok, TOKEN_COMMA, false, "expected \",\" or \")\"");
-        ParseFuncArgVarDeclaration(pc, &args);
-    }
-    return args;
-}
-
-
-struct typeList ParseFuncRets(struct parserContext* pc) {
-    struct typeList rets = TypeListNew();
-
-    struct token tok;
-    ForceParseToken(pc, &tok, TOKEN_PAREN_OPEN, false, NULL);
-    if (TryParseToken(pc, &tok, TOKEN_PAREN_CLOSE, false)) return rets;
-
-    TypeListAppend(&rets, ParseType(pc));
-    while (!TryParseToken(pc, &tok, TOKEN_PAREN_CLOSE, false)) {
-        ForceParseToken(pc, &tok, TOKEN_COMMA, false, "expected \",\" or \")\"");
-        TypeListAppend(&rets, ParseType(pc));
-    }
-    return rets;
-}
-
-
-struct type FuncTypeFromOpArgsAndRets(struct operandList args, struct typeList rets) {
-    struct typeList argTypes = TypeListNew();
-    struct typeList retTypes = TypeListNew();
-    for (int i = 0; i < args.len; i++) {
-        TypeListAppend(&argTypes, args.ptr[i].type);
-    }
-    for (int i = 0; i < rets.len; i++) {
-        TypeListAppend(&retTypes, rets.ptr[i]);
-    }
-    return FuncType(argTypes, retTypes);
-}
-
-
-static struct operand ParseFuncHeader(struct parserContext* pc) {
+//basetypes are not complete until function has been called with all imported files too
+void parseBaseTypes(struct parserContext* pc) {
     struct token nameTok;
-    ForceParseToken(pc, &nameTok, TOKEN_IDENTIFIER, false, "expected function name");
-    struct operandList args = ParseFuncArgs(pc);
-    struct typeList rets = ParseFuncRets(pc);
-    struct operand funcOp = OperandNew(nameTok.str, FuncTypeFromOpArgsAndRets(args, rets));
-    funcOp.args = args;
-    funcOp.rets = rets;
-    return funcOp;
-}
-
-
-void ParseCompleteTypesAndFuncHeaders(struct parserContext* pc) {
     struct token tok;
-    while ((tok = TokenNext(&(pc->tc))).type != TOKEN_EOF) {
-        if (tok.type == TOKEN_TYPE) ParseTypedef(pc);
-        else if (tok.type == TOKEN_FUNC) {
-            ParseFuncHeader(pc);
+    while ((tok = TokenNext(pc->tc)).type != TOKEN_EOF) {
+        if (tok.type == TOKEN_TYPE) {
+            parseToken(pc, &nameTok, TOKEN_IDENTIFIER, false, "expected type name");
+            struct type* t = pcGetTypePtr(pc, nameTok.str);
+            tok = TokenNext(pc->tc);
+            switch(tok.type) {
+                case TOKEN_IDENTIFIER: TokenUnget(pc->tc); parseAliasTypeDef(pc, nameTok); break;
+                case TOKEN_STRUCT: t->bType = BASETYPE_STRUCT; break;
+                case TOKEN_VOCAB: t->bType = BASETYPE_VOCAB; break;
+                case TOKEN_FUNC: t->bType = BASETYPE_FUNC; break;
+                default: SyntaxErrorInvalidToken(tok, "expected type");
+            }
+            if (baseTypeComplete(t)) typeDependantsComplete(t); 
         }
     }
 }
 
 
-void ParseFileFirstPass(struct parserContext* pc) {
-    fputs("first pass parsing ", stdout);
-    StrPrint(pc->fileName, stdout);
-    fputs("...\n", stdout);
-    ParseTypePlaceholdersAndImportsFirstPass(pc);
-    TokenRestart(&(pc->tc));
-}
-
-
-void ParseFileSecondPass(struct parserContext* pc) {
-    fputs("second pass parsing ", stdout);
-    StrPrint(pc->fileName, stdout);
-    fputs("...\n", stdout);
-    ParseCompleteTypesAndFuncHeaders(pc);
-    TokenRestart(&(pc->tc));
-}
-
-
-void ParseFileThirdPass(struct parserContext* pc) {
-    fputs("third pass parsing ", stdout);
-    StrPrint(pc->fileName, stdout);
-    fputs("...\n", stdout);
+void parseFuncArgVarDeclaration(struct parserContext* pc, struct varList* args) {
     struct token tok;
-    while (!TryParseToken(pc, &tok, TOKEN_EOF, true)) {
-        ParseGlobalLevel(pc);
+    parseToken(pc, &tok, TOKEN_IDENTIFIER, false, "expected variable identifier");
+    if (isPublic(tok.str)) SyntaxErrorInvalidToken(tok, "local variables may not be capitalized");
+    if (varListContains(args, tok.str)) SyntaxErrorInvalidToken(tok, "duplicate argument name");
+    varListAppend(args, varNew(tok, parseFuncArgType(pc)));
+}
+
+
+struct varList parseFuncArgs(struct parserContext* pc) {
+    struct varList args = varListNew();
+    struct token tok;
+    parseToken(pc, &tok, TOKEN_PAREN_OPEN, true, NULL);
+    if (tryParseToken(pc, &tok, TOKEN_PAREN_CLOSE, true)) return args;
+    parseFuncArgVarDeclaration(pc, &args);
+    while (tryParseToken(pc, &tok, TOKEN_COMMA, true)) parseFuncArgVarDeclaration(pc, &args);
+    parseToken(pc, &tok, TOKEN_PAREN_CLOSE, false, "expected \",\" or \")\"");
+    return args;
+}
+
+
+void parseFuncHeader(struct parserContext* pc) {
+    struct token tok;
+    parseToken(pc, &tok, TOKEN_IDENTIFIER, false, "expected function name");
+    struct varList args = parseFuncArgs(pc);
+    struct typeList rets = parseFuncRets(pc);
+    struct type funcT = funcType(tok, args, rets);
+    pcAddVar(pc, varNew(tok, funcT));
+}
+
+
+void parseCompleteTypesAndFuncHeaders(struct parserContext* pc) {
+    struct token tok;
+    while ((tok = TokenNext(pc->tc)).type != TOKEN_EOF) {
+        if (tok.type == TOKEN_TYPE) parseTypeDefComplete(pc);
+        else if (tok.type == TOKEN_FUNC) parseFuncHeader(pc);
+    }
+}
+
+
+void parseFileFirstPass(struct parserContext* pc) {
+    parseTypePlaceholdersAndImportsFirstPass(pc);
+    TokenRestart(pc->tc);
+}
+
+
+void parseFileSecondPass(struct parserContext* pc) {
+    parseBaseTypes(pc);
+    TokenRestart(pc->tc);
+}
+
+
+void parseFileThirdPass(struct parserContext* pc) {
+    parseCompleteTypesAndFuncHeaders(pc);
+    TokenRestart(pc->tc);
+}
+
+
+void parseFileFourthPass(struct parserContext* pc) {
+    struct token tok;
+    while (!tryParseToken(pc, &tok, TOKEN_EOF, true)) {
+        parseGlobalLevel(pc);
     }
 }
 
 
 void ParseMainFile(char* fileName) {
-    struct parserContextList parsedFiles = parserContextListNew();
-    parserContextListAppend(&parsedFiles, parserContextNew(StrFromCharArray(fileName), &parsedFiles));
-    struct parserContext* pc = parserContextListGetByFileName(parsedFiles, StrFromCharArray(fileName));
-    ParseFileFirstPass(pc);
+    struct pcList parsedFiles = pcListNew();
+    pcListAppend(&parsedFiles, parserContextNew(StrFromCharArray(fileName), &parsedFiles));
+    struct parserContext* pc = pcListGet(&parsedFiles, StrFromCharArray(fileName));
+    parseFileFirstPass(pc);
     for (int i = 0; i < parsedFiles.len; i++) {
-        ParseFileSecondPass(parserContextListGetByIndex(parsedFiles, i));
+        parseFileSecondPass(parsedFiles.ptr + i);
     }
     for (int i = 0; i < parsedFiles.len; i++) {
-        ParseFileThirdPass(parserContextListGetByIndex(parsedFiles, i));
+        parseFileThirdPass(parsedFiles.ptr + i);
+    }
+    for (int i = 0; i < parsedFiles.len; i++) {
+        parseFileFourthPass(parsedFiles.ptr + i);
     }
 }

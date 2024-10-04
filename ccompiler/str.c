@@ -158,3 +158,34 @@ void StrPrint(struct str s, FILE* fp) {
     StrToCharArray(s, printArr);
     fputs(printArr, fp);
 }
+
+
+long long StrToLongLongVal(struct str s) {
+    char arr[StrGetLen(s) +1];
+    strncpy(arr, s.ptr, StrGetLen(s));
+    arr[StrGetLen(s)] = '\0';
+    return atoll(arr);
+}
+
+
+double StrToDoubleVal(struct str s) {
+    char arr[StrGetLen(s) +1];
+    strncpy(arr, s.ptr, StrGetLen(s));
+    arr[StrGetLen(s)] = '\0';
+    return atof(arr);
+}
+
+
+char StrToCharVal(struct str s) {
+    if (StrGetChar(s, 1) != '\\') return StrGetChar(s, 1);
+    else if (StrGetChar(s, 2) == 'n') return '\n';
+    else if (StrGetChar(s, 2) == 't') return '\t';
+    else if (StrGetChar(s, 2) == '\\') return '\\';
+    else if (StrGetChar(s, 2) == '\'') return '\'';
+    else exit(EXIT_FAILURE); //unreachable
+}
+
+
+struct str StrToStringVal(struct str s) {
+    return StrSlice(s, 1, StrGetLen(s) -1);
+}
