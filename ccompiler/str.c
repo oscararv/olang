@@ -38,13 +38,12 @@ struct str StrFromCharArray(char* arr) {
 
 
 struct str StrSlice(struct str orig, int start, int stop) {
-    if (stop > orig.len) Error("string slice stop index is greater than original string len");
-    struct str str;
-    str.isSlice = true;
-    str.len = stop - start;
-    str.cap = str.len;
-    str.ptr = orig.ptr + start;
-    return str;
+    if (stop > orig.len) error("slice stop index is greater than original string len");
+    if (start < 0) error("slice start index is less than zero");
+    orig.isslice = true;
+    orig.len = stop - start;
+    orig.ptr = orig.ptr + start;
+    return orig;
 }
 
 
@@ -160,7 +159,7 @@ void StrPrint(struct str s, FILE* fp) {
 }
 
 
-long long StrToLongLongVal(struct str s) {
+long long StrToLongLong(struct str s) {
     char arr[StrGetLen(s) +1];
     strncpy(arr, s.ptr, StrGetLen(s));
     arr[StrGetLen(s)] = '\0';
@@ -168,7 +167,7 @@ long long StrToLongLongVal(struct str s) {
 }
 
 
-double StrToDoubleVal(struct str s) {
+double StrToDouble(struct str s) {
     char arr[StrGetLen(s) +1];
     strncpy(arr, s.ptr, StrGetLen(s));
     arr[StrGetLen(s)] = '\0';
@@ -176,7 +175,7 @@ double StrToDoubleVal(struct str s) {
 }
 
 
-char StrToCharVal(struct str s) {
+char StrToChar(struct str s) {
     if (StrGetChar(s, 1) != '\\') return StrGetChar(s, 1);
     else if (StrGetChar(s, 2) == 'n') return '\n';
     else if (StrGetChar(s, 2) == 't') return '\t';
@@ -186,6 +185,6 @@ char StrToCharVal(struct str s) {
 }
 
 
-struct str StrToStringVal(struct str s) {
+struct str StrToString(struct str s) {
     return StrSlice(s, 1, StrGetLen(s) -1);
 }

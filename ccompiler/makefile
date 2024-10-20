@@ -1,13 +1,13 @@
 CC = gcc
-CFLAGS = -Wall -Werror -Wextra -g#-fsanitize=address
+CFLAGS = -Wall -Werror -Wextra -g #-fsanitize=address
 
-buildrun: bin/test
+buildrun: clean build
 	bin/test
 
 build: bin/test
 
 clean:
-	rm -r bin
+	rm -rf bin
 
 bin/test: $(addprefix bin/, $(addsuffix .o, $(basename $(wildcard *.c))))
 	$(CC) $(CFLAGS) -o $@ $^

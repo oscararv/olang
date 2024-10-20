@@ -10,11 +10,12 @@ type MyStructure struct {
     self MyStructure,
     mst MST2{},
     myInt MyInt,
-    alsoMyInt tst.AlsoMyInt[],
+    alsoMyInt tst.AlsoMyInt[(2 + 2) / myNormalInt(2 + 2.3)],
     myInt2 int32[2]
 }
 
 
+type myNormalInt int32
 type MyInt tst.AlsoMyInt[]
 type MST2 struct {
     myStr MyStructure,
@@ -38,4 +39,3 @@ func MyFun(in mut int32[], i bool[], in2 mut MyStructure)(float32, int32)
 
 
 type MyFunc func(int32[], mut MyStructure, int32)(int32[23], MyInt, MyStructure{})
-

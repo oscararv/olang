@@ -7,13 +7,35 @@
 #include "str.h"
 
 
+struct tokenList TokenListNew() {
+    return (struct tokenList){0};
+}
+
+
+void TokenListAppend(struct tokenList* tl, struct token tok) {
+    if (tl->isSlice) Error("list slices may not be appended");
+    if (tl->len >= tl->cap) {
+        tl->cap += 100;
+        tl->ptr = realloc(tl->ptr, sizeof(struct token)* tl->cap);
+        CheckPtr(tl->ptr);
+    }
+    tl->ptr[tl->len] = tok;
+    tl->len++;
+}
+
+
+struct tokenList TokenListSlice(struct tokenList orig, int start, int stop) {
+    if (stop > orig.len) Error("string slice stop index is greater than original string len");
+    if (start < 0) Error("string slice start index is less than zero");
+    orig.isSlice = true;
+    orig.len = stop - start;
+    orig.ptr = orig.ptr + start;
+    return orig;
+}
+
+
 struct tokenPipe TokenPipeNew() {
-    struct tokenPipe tp;
-    tp.nAvailable = 0;
-    tp.nDelivered = 0;
-    tp.cap = 0;
-    tp.ptr = NULL;
-    return tp;
+    return (struct tokenPipe){0};
 }
 
 
@@ -42,16 +64,22 @@ struct token tokenPipePop(struct tokenPipe* pipe) {
 }
 
 
+struct token tokenPipePeek(struct tokenPipe* pipe) {
+    if (pipe->nAvailable <= 0) Error("tried to peek into empty token pipe");
+    return pipe->ptr[pipe->nDelivered];
+}
+
+
 void tokenPipeRestart(struct tokenPipe* pipe) {
     pipe->nAvailable += pipe->nDelivered;
     pipe->nDelivered = 0;
 }
 
 
-void tokenPipeUnpop(struct tokenPipe* pipe) {
-    if (pipe->nDelivered <= 0) Error("tried to unpop to pipe with no deliveries");
-    pipe->nDelivered--;
-    pipe->nAvailable++;
+void tokenPipeUnpop(struct tokenPipe* pipe, int n) {
+    if (pipe->nDelivered - n < 0) Error("tried to unpop to pipe with no deliveries");
+    pipe->nDelivered-=n;
+    pipe->nAvailable+=n;
 }
 
 
@@ -77,19 +105,15 @@ struct tokenContext* TokenContextNew(struct str fileName) {
 }
 
 
-void ParseComment(struct str line, int* col) {
-    while (StrGetChar(line, *col) != '\n') (*col)++;
-}
-
-
-void FindTokenStart(struct str line, int* col) {
+bool FindTokenStart(struct str line, int* col) {
     char c = StrGetChar(line, *col);
-    if (c == '#') ParseComment(line, col);
-    while(c == ' ' || c == '\t') {
+    while(c == ' ' || c == '\t' || c == '\n' || c == '#') {
+        if (c == '\n') return false;
+        if (c == '#') return false;
         (*col)++;
         c = StrGetChar(line, *col);
-        if (c == '#') ParseComment(line, col);
     }
+    return true;
 }
 
 
@@ -157,18 +181,18 @@ static void ParseChar(struct tokenContext* tc, int* col, bool inStr) {
 }
 
 
-void ParseCharConstant(struct tokenContext* tc, int* col) {
+void ParseCharLiteral(struct tokenContext* tc, int* col) {
     struct str line = StrListGetLast(tc->lines);
     if (StrGetChar(line, *col) == '\'') SyntaxErrorInvalidChar(tc, *col,
-            "character constants may not be empty");
+            "character literals may not be empty");
     ParseChar(tc, col, false);
     if (StrGetChar(line, *col) != '\'') SyntaxErrorInvalidChar(tc, *col,
-            "character constants may only contain one character");
+            "character literals may only contain one character");
     (*col)++;
 }
 
 
-void ParseStringConstant(struct tokenContext* tc, int* col) {
+void ParseStringLiteral(struct tokenContext* tc, int* col) {
     struct str line = StrListGetLast(tc->lines);
     char c;
     while ((c = StrGetChar(line, *col)) != '"') {
@@ -185,6 +209,16 @@ enum tokenType ParseEqualSign(struct tokenContext* tc, int* col) {
         return TOKEN_LOGICAL_EQUALS;
     }
     return TOKEN_ASSIGNMENT;
+}
+
+
+enum tokenType ParseExclamationMark(struct tokenContext* tc, int* col) {
+    struct str line = StrListGetLast(tc->lines);
+    if (StrGetChar(line, *col) == '=') {
+        (*col)++;
+        return TOKEN_LOGICAL_NOT_EQUALS;
+    }
+    return TOKEN_LOGICAL_NOT;
 }
 
 
@@ -309,10 +343,10 @@ void ParseTokenSwitch(struct tokenContext* tc, struct token* tok, int* col) {
         ParseIdentifier(tc, col);
     }
     else switch (c) {
-        case '\n': tok->type = TOKEN_NEWLINE; break;
-        case '\'': tok->type = TOKEN_CHAR; ParseCharConstant(tc, col); break;
-        case '"': tok->type = TOKEN_STRING; ParseStringConstant(tc, col); break;
+        case '\'': tok->type = TOKEN_CHAR; ParseCharLiteral(tc, col); break;
+        case '"': tok->type = TOKEN_STRING; ParseStringLiteral(tc, col); break;
         case '=': tok->type = ParseEqualSign(tc, col); break;
+        case '!': tok->type = ParseExclamationMark(tc, col); break;
         case '&': tok->type = ParseAmpersand(tc, col); break;
         case '|': tok->type = ParsePipe(tc, col); break;
         case '<': tok->type = ParseLessThan(tc, col); break;
@@ -331,7 +365,6 @@ void ParseTokenSwitch(struct tokenContext* tc, struct token* tok, int* col) {
         case ']': tok->type = TOKEN_SQUAREBRACKET_CLOSE; break;
         case '{': tok->type = TOKEN_CURLYBRACKET_OPEN; break;
         case '}': tok->type = TOKEN_CURLYBRACKET_CLOSE; break;
-        case '!': tok->type = TOKEN_LOGICAL_NOT; break;
         case '^': tok->type = TOKEN_BITWISE_XOR; break;
         case '~': tok->type = TOKEN_BITWISE_COMPLEMENT; break;
         default: SyntaxErrorInvalidChar(tc, *col-1, "illegal character"); break;
@@ -357,21 +390,20 @@ static void SpecifyIdentifier(struct token* tok) {
 }
 
 
-struct token ParseToken(struct tokenContext* tc, int* col) {
+bool ParseToken(struct tokenContext* tc, int* col, struct token* tok) {
     struct str line = StrListGetLast(tc->lines);
-    FindTokenStart(line, col);
+    if (!FindTokenStart(line, col)) return false;
 
-    struct token tok;
     int colStart = *col;
-    tok.lineNr = StrListLen(tc->lines);
-    tok.str = StrSlice(line, *col, *col);
-    tok.context = tc;
+    tok->lineNr = StrListLen(tc->lines);
+    tok->str = StrSlice(line, *col, *col);
+    tok->context = tc;
 
-    ParseTokenSwitch(tc, &tok, col);
-    StrSetLen(&(tok.str), *col - colStart);
+    ParseTokenSwitch(tc, tok, col);
+    StrSetLen(&(tok->str), *col - colStart);
 
-    if (tok.type == TOKEN_IDENTIFIER) SpecifyIdentifier(&tok);
-    return tok;
+    if (tok->type == TOKEN_IDENTIFIER) SpecifyIdentifier(tok);
+    return true;
 }
 
 
@@ -423,8 +455,9 @@ void ParseLine(struct tokenContext* tc) {
     ValidateLatestLine(tc);
 
     int col = 0;
-    while(col < StrGetLen(line)) {
-        tokenPipePush(&(tc->tokens), ParseToken(tc, &col));
+    struct token tok;
+    while(col < StrGetLen(line) && ParseToken(tc, &col, &tok)) {
+        tokenPipePush(&(tc->tokens), tok);
     }
     if (eof) {
         tokenPipePush(&(tc->tokens), TokenEOF(tc));
@@ -433,30 +466,21 @@ void ParseLine(struct tokenContext* tc) {
 
 
 struct token TokenNext(struct tokenContext* tc) {
-    struct token tok;
-    if (tokenPipeIsEmpty(&(tc->tokens))) ParseLine(tc);
-    tok = tokenPipePop(&(tc->tokens));
+    while (tokenPipeIsEmpty(&(tc->tokens))) ParseLine(tc);
+    struct token tok = tokenPipePop(&(tc->tokens));
     if (tok.type == TOKEN_EOF) tokenPipePush(&(tc->tokens), tok);
     return tok;
 }
 
 
-void TokenDiscardNewlines(struct tokenContext* tc) {
-    struct token tok;
-    while((tok = TokenNext(tc)).type == TOKEN_NEWLINE);
-    tokenPipeUnpop(&(tc->tokens));
+struct token TokenPeek(struct tokenContext* tc) {
+    if (tokenPipeIsEmpty(&(tc->tokens))) ParseLine(tc);
+    return tokenPipePeek(&(tc->tokens));
 }
 
 
-struct token TokenNextDiscardNewlines(struct tokenContext* tc) {
-    struct token tok;
-    while((tok = TokenNext(tc)).type == TOKEN_NEWLINE);
-    return tok;
-}
-
-
-void TokenUnget(struct tokenContext* tc) {
-    tokenPipeUnpop(&(tc->tokens));
+void TokenUnget(struct tokenContext* tc, int n) {
+    tokenPipeUnpop(&(tc->tokens), n);
 }
 
 
@@ -465,6 +489,7 @@ void TokenRestart(struct tokenContext* tc) {
 }
 
 
+//TODO multiline tokens
 struct token TokenExtend(struct token base, struct token tail) { //assumes the tokens exist on the same line
     if (base.lineNr != tail.lineNr) Error("base and tail tokens exist on different lines");
     struct token ret;
@@ -480,11 +505,10 @@ char* TokenTypeToString(enum tokenType t) {
     switch(t) {
         case TOKEN_UNDEF: return "";
         case TOKEN_EOF: return "end of file";
-        case TOKEN_NEWLINE: return "newline";
-        case TOKEN_INT: return "integer constant";
-        case TOKEN_FLOAT: return "float constant";
-        case TOKEN_CHAR: return "character constant";
-        case TOKEN_STRING: return "string constant";
+        case TOKEN_INT: return "integer literals";
+        case TOKEN_FLOAT: return "float literals";
+        case TOKEN_CHAR: return "character literals";
+        case TOKEN_STRING: return "string literals";
         case TOKEN_IDENTIFIER: return "identifier";
         case TOKEN_IMPORT: return "import";
         case TOKEN_TYPE: return "type";;
@@ -514,6 +538,7 @@ char* TokenTypeToString(enum tokenType t) {
         case TOKEN_ASSIGNMENT_DIV: return "/=";
         case TOKEN_ASSIGNMENT_MODULO: return "%=";
         case TOKEN_LOGICAL_EQUALS: return "==";
+        case TOKEN_LOGICAL_NOT_EQUALS: return "!=";
         case TOKEN_LOGICAL_NOT: return "==";
         case TOKEN_LOGICAL_AND: return "&&";
         case TOKEN_LOGICAL_OR: return "||";

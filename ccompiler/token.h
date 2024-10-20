@@ -7,7 +7,6 @@
 enum tokenType {
     TOKEN_UNDEF = 0,
     TOKEN_EOF,
-    TOKEN_NEWLINE,
     TOKEN_INT,
     TOKEN_FLOAT,
     TOKEN_CHAR,
@@ -41,6 +40,7 @@ enum tokenType {
     TOKEN_ASSIGNMENT_DIV,
     TOKEN_ASSIGNMENT_MODULO,
     TOKEN_LOGICAL_EQUALS,
+    TOKEN_LOGICAL_NOT_EQUALS,
     TOKEN_LOGICAL_NOT,
     TOKEN_LOGICAL_AND,
     TOKEN_LOGICAL_OR,
@@ -73,6 +73,14 @@ struct token {
 };
 
 
+struct tokenList {
+    int len;
+    int cap;
+    bool isSlice;
+    struct token* ptr;
+};
+
+
 struct tokenPipe {
     int nAvailable;
     int nDelivered;
@@ -93,11 +101,13 @@ struct tokenContext {
 static const struct token TOKEN_UNDEFINED = {.type = TOKEN_UNDEF, .lineNr = LINE_NR_UNDEFINED};
 
 
+struct tokenList TokenListNew();
+void TokenListAppend(struct tokenList* tl, struct token tok);
+struct tokenList TokenListSlice(struct tokenList tl, int start, int stop);
 struct tokenContext* TokenContextNew(struct str fileName);
 struct token TokenNext(struct tokenContext* tc);
-void TokenDiscardNewlines(struct tokenContext* tc);
-struct token TokenNextDiscardNewlines(struct tokenContext* tc);
-void TokenUnget(struct tokenContext* tc);
+struct token TokenPeek(struct tokenContext* tc);
+void TokenUnget(struct tokenContext* tc, int n);
 void TokenRestart(struct tokenContext* tc);
 struct token TokenExtend(struct token base, struct token tail); //assumes the tokens exist on the same line
 char* TokenTypeToString(enum tokenType t);

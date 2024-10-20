@@ -30,12 +30,6 @@ static void syntaxErrorBase(int line, struct str fileName) {
 }
 
 
-static void printChar(int c) {
-    if (c == '\n') fputs("\\n", stdout);
-    else putchar(c);
-}
-
-
 static void printCharIgnoreNewline(int c) {
     if (c != '\n') putchar(c);
 }
@@ -43,7 +37,7 @@ static void printCharIgnoreNewline(int c) {
 
 static void printStr(struct str str) {
     for (int i = 0; i < StrGetLen(str); i++) {
-        printChar(StrGetChar(str, i));
+        printCharIgnoreNewline(StrGetChar(str, i));
     }
 }
 
@@ -56,7 +50,7 @@ static void syntaxErrorLine(int lineNr, struct str line, int colStart, int colEn
 
     fputs(COLOR_RED, stdout);
     for (int i = colStart; i <= colEnd; i++) {
-        printChar(StrGetChar(line, i));
+        printCharIgnoreNewline(StrGetChar(line, i));
     }
 
     fputs(COLOR_BRIGHT_BLACK, stdout);
@@ -73,7 +67,7 @@ void SyntaxErrorInvalidChar(struct tokenContext* tc, int col, char* reason) {
     syntaxErrorBase(StrListLen(tc->lines), tc->fileName);
     fputs(COLOR_YELLOW, stdout);
     fputs("\"", stdout);
-    printChar(StrGetChar(line, col));
+    printCharIgnoreNewline(StrGetChar(line, col));
     fputs("\"", stdout);
     if (reason) {
         fputs(" ", stdout);

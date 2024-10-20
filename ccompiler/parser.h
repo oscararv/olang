@@ -8,61 +8,77 @@
 
 enum baseType {
     BASETYPE_PLACEHOLDER, //type definition type after first pass
-    BASETYPE_BYTE,
+    BASETYPE_IMPORT,
     BASETYPE_BOOL,
     BASETYPE_INT8,
     BASETYPE_INT16,
     BASETYPE_INT32,
     BASETYPE_INT64,
-    BASETYPE_UINT8,
-    BASETYPE_UINT16,
-    BASETYPE_UINT32,
-    BASETYPE_UINT64,
     BASETYPE_FLOAT32,
     BASETYPE_FLOAT64,
     BASETYPE_ARRAY,
     BASETYPE_STRUCT,
     BASETYPE_VOCAB,
     BASETYPE_FUNC,
-    BASETYPE_IMPORT,
-    BASETYPE_INT, //constant type
-    BASETYPE_FLOAT, //constant type
-    BASETYPE_CHAR, //constant type
-    BASETYPE_STRING //constant type
 };
 
 
 enum operationType {
+    //no token symbol
     OPERATION_NOOP,
     OPERATION_TYPECAST,
-    OPERATION_FUNC,
+    OPERATION_FUNCCALL,
+
+    //unary
+    OPERATION_LOGICAL_NOT,
+    OPERATION_BITWISE_COMPLEMENT,
+
+    //binary arithmetic
     OPERATION_MUL,
     OPERATION_DIV,
     OPERATION_ADD,
     OPERATION_SUB,
-    OPERATION_MODULO,
-    OPERATION_INCREMENT,
-    OPERATION_DECREMENT,
+
+    //binary unversal logical
     OPERATION_LOGICAL_EQUALS,
-    OPERATION_LOGICAL_NOT,
+    OPERATION_LOGICAL_NOT_EQUALS,
+
+    //binary boolean logical
     OPERATION_LOGICAL_AND,
     OPERATION_LOGICAL_OR,
+
+    //binary numeric logical
     OPERATION_LOGICAL_LESS_THAN,
     OPERATION_LOGICAL_LESS_THAN_OR_EQUAL,
     OPERATION_LOGICAL_GREATER_THAN,
     OPERATION_LOGICAL_GREATER_THAN_OR_EQUAL,
+
+    //binary intShift
+    OPERATION_MODULO,
+    OPERATION_BITSHIFT_LEFT,
+    OPERATION_BITSHIFT_RIGHT,
+
+    //binary bitwise
     OPERATION_BITWISE_AND,
     OPERATION_BITWISE_OR,
     OPERATION_BITWISE_XOR,
-    OPERATION_BITWISE_COMPLEMENT,
-    OPERATION_BITSHIFT_LEFT,
-    OPERATION_BITSHIFT_RIGHT
+
+    //assignment
+    OPERATION_INCREMENT,
+    OPERATION_DECREMENT,
+    OPERATION_ASSIGNMENT,
+    OPERATION_ASSIGNMENT_ADD,
+    OPERATION_ASSIGNMENT_SUB,
+    OPERATION_ASSIGNMENT_MUL,
+    OPERATION_ASSIGNMENT_DIV,
+    OPERATION_ASSIGNMENT_MODULO
 };
 
 
 struct opPtrList {
     int len;
     int cap;
+    bool isSlice;
     struct operand** ptr;
 };
 
@@ -112,6 +128,7 @@ struct type {
     struct typeDef* def;
     bool ref; //arrays are refs if dimension one is ARRAY_REF; struct are refs unless they are declared "{}"
     bool mut;
+    bool constLiteral; //const literals can be implicitly casted
     struct opPtrList arrLenghts;
     enum baseType arrBType;
     struct typePtrList dependants; //types aliasing this type before its base type is defined
@@ -122,12 +139,13 @@ struct type {
 struct operand {
     struct token tok;
     struct type type;
+    struct opPtrList operands;
+    enum operationType operation;
+
     bool valKnown;
     long long intVal;
     double floatVal;
     struct str strVal;
-    struct opPtrList operands;
-    enum operationType operation;
 };
 
 
@@ -155,8 +173,8 @@ struct parserContext {
     struct pcList* parsedFiles;
     struct typeList publTypes;
     struct typeList privTypes;
-    struct varList publVarsAndConsts;
-    struct varList privVarsAndConsts;
+    struct varList publVars;
+    struct varList privVars;
 };
 
 
