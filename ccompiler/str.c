@@ -38,9 +38,9 @@ struct str StrFromCharArray(char* arr) {
 
 
 struct str StrSlice(struct str orig, int start, int stop) {
-    if (stop > orig.len) error("slice stop index is greater than original string len");
-    if (start < 0) error("slice start index is less than zero");
-    orig.isslice = true;
+    if (stop > orig.len) Error("slice stop index is greater than original string len");
+    if (start < 0) Error("slice start index is less than zero");
+    orig.isSlice = true;
     orig.len = stop - start;
     orig.ptr = orig.ptr + start;
     return orig;
@@ -187,4 +187,15 @@ char StrToChar(struct str s) {
 
 struct str StrToString(struct str s) {
     return StrSlice(s, 1, StrGetLen(s) -1);
+}
+
+
+struct strList StrListCopy(struct strList list) {
+    struct strList new = list;
+    new.ptr = malloc(sizeof(struct str) * new.cap);
+    CheckPtr(new.ptr);
+    for (int i = 0; i < list.len; i++) {
+        new.ptr[i] = list.ptr[i];
+    }
+    return new;
 }

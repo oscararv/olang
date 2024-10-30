@@ -35,13 +35,6 @@ static void printCharIgnoreNewline(int c) {
 }
 
 
-static void printStr(struct str str) {
-    for (int i = 0; i < StrGetLen(str); i++) {
-        printCharIgnoreNewline(StrGetChar(str, i));
-    }
-}
-
-
 static void syntaxErrorLine(int lineNr, struct str line, int colStart, int colEnd) {
     printf(COLOR_GREEN "%d " COLOR_BRIGHT_BLACK, lineNr);
     for (int i = 0; i < colStart; i++) {
@@ -82,25 +75,21 @@ void SyntaxErrorInvalidChar(struct tokenContext* tc, int col, char* reason) {
 //reason may be NULL
 void SyntaxErrorInvalidToken(struct token tok, char* reason) {
     struct tokenContext* tc = tok.context;
-    struct str line = StrListGet(tc->lines, tok.lineNr -1);
-    syntaxErrorBase(tok.lineNr, tc->fileName);
+    syntaxErrorBase(tok.lineNrs.ptr[0], tc->fileName);
     fputs(COLOR_YELLOW, stdout);
     if (tok.type == TOKEN_EOF) {
         fputs("unexpected end of file", stdout);
     }
-    else {
-        fputs("\"", stdout);
-        printStr(tok.str);
-        fputs("\"", stdout);
-    }
-    if (reason) {
-        fputs(" ", stdout);
-        fputs(reason, stdout);
-    }
+    else fputs(reason, stdout);
     puts(COLOR_RESET);
-    if (tok.type != TOKEN_EOF) {
-        int colStart = StrGetSliceStrIndex(line, tok.str);
-        syntaxErrorLine(tok.lineNr, line, colStart, colStart + StrGetLen(tok.str) -1);
+    if (tok.type == TOKEN_EOF) exit(EXIT_FAILURE);
+
+    for (int i = 0; i < tok.lineNrs.len; i++) {
+        int lineNr = tok.lineNrs.ptr[i];
+        struct str line = StrListGet(tc->lines, lineNr -1);
+        struct str tokLine = StrListGet(tok.strs, i);
+        int colStart = StrGetSliceStrIndex(line, tokLine);
+        syntaxErrorLine(lineNr, line, colStart, colStart + StrGetLen(tokLine) -1);
     }
     exit(EXIT_FAILURE);
 }

@@ -3,13 +3,14 @@
 #include "token.h"
 
 
-#define ARRAY_REF -1 //must not interfere with a valid array length
-
-
 enum baseType {
     BASETYPE_PLACEHOLDER, //type definition type after first pass
     BASETYPE_IMPORT,
     BASETYPE_BOOL,
+    BASETYPE_BIT8,
+    BASETYPE_BIT16,
+    BASETYPE_BIT32,
+    BASETYPE_BIT64,
     BASETYPE_INT8,
     BASETYPE_INT16,
     BASETYPE_INT32,
@@ -36,8 +37,8 @@ enum operationType {
     //binary arithmetic
     OPERATION_MUL,
     OPERATION_DIV,
-    OPERATION_ADD,
-    OPERATION_SUB,
+    OPERATION_ADD, //also unary
+    OPERATION_SUB, //also unary
 
     //binary unversal logical
     OPERATION_LOGICAL_EQUALS,
@@ -126,7 +127,7 @@ struct type {
     struct token tok;
     enum baseType bType;
     struct typeDef* def;
-    bool ref; //arrays are refs if dimension one is ARRAY_REF; struct are refs unless they are declared "{}"
+    bool ref; //arrays are refs if dimension one is declared "[]"; struct are refs unless they are declared "{}"
     bool mut;
     bool constLiteral; //const literals can be implicitly casted
     struct opPtrList arrLenghts;
@@ -143,9 +144,9 @@ struct operand {
     enum operationType operation;
 
     bool valKnown;
-    long long intVal;
+    long long intVal; //also used for vocabularies bits and bools
     double floatVal;
-    struct str strVal;
+    struct str arrVal; //also used for structs
 };
 
 

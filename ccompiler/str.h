@@ -43,6 +43,7 @@ long long StrToLongLong(struct str s);
 double StrToDouble(struct str s);
 char StrToChar(struct str s);
 struct str StrToString(struct str s);
+struct strList StrListCopy(struct strList list);
 
 
 #endif //STR_H

@@ -24,6 +24,28 @@ void TokenListAppend(struct tokenList* tl, struct token tok) {
 }
 
 
+void intListAppend(struct intList* il, int i) {
+    if (il->len >= il->cap) {
+        il->cap += 100;
+        il->ptr = realloc(il->ptr, sizeof(struct token)* il->cap);
+        CheckPtr(il->ptr);
+    }
+    il->ptr[il->len] = i;
+    il->len++;
+}
+
+
+struct intList intListCopy(struct intList list) {
+    struct intList new = list;
+    new.ptr = malloc(sizeof(int) * new.cap);
+    CheckPtr(new.ptr);
+    for (int i = 0; i < new.len; i++) {
+        new.ptr[i] = list.ptr[i];
+    }
+    return new;
+}
+
+
 struct tokenList TokenListSlice(struct tokenList orig, int start, int stop) {
     if (stop > orig.len) Error("string slice stop index is greater than original string len");
     if (start < 0) Error("string slice start index is less than zero");
@@ -373,34 +395,35 @@ void ParseTokenSwitch(struct tokenContext* tc, struct token* tok, int* col) {
 
 
 static void SpecifyIdentifier(struct token* tok) {
-    if (StrEqualCharArray(tok->str, "import")) tok->type = TOKEN_IMPORT;
-    else if (StrEqualCharArray(tok->str, "type")) tok->type = TOKEN_TYPE;
-    else if (StrEqualCharArray(tok->str, "if")) tok->type = TOKEN_IF;
-    else if (StrEqualCharArray(tok->str, "else")) tok->type = TOKEN_ELSE;
-    else if (StrEqualCharArray(tok->str, "for")) tok->type = TOKEN_FOR;
-    else if (StrEqualCharArray(tok->str, "defer")) tok->type = TOKEN_DEFER;
-    else if (StrEqualCharArray(tok->str, "return")) tok->type = TOKEN_RETURN;
-    else if (StrEqualCharArray(tok->str, "break")) tok->type = TOKEN_BREAK;
-    else if (StrEqualCharArray(tok->str, "match")) tok->type = TOKEN_MATCH;
-    else if (StrEqualCharArray(tok->str, "case")) tok->type = TOKEN_CASE;
-    else if (StrEqualCharArray(tok->str, "struct")) tok->type = TOKEN_STRUCT;
-    else if (StrEqualCharArray(tok->str, "vocab")) tok->type = TOKEN_VOCAB;
-    else if (StrEqualCharArray(tok->str, "func")) tok->type = TOKEN_FUNC;
-    else if (StrEqualCharArray(tok->str, "mut")) tok->type = TOKEN_MUT;
+    if (StrEqualCharArray(TokenGetFirstString(tok), "import")) tok->type = TOKEN_IMPORT;
+    else if (StrEqualCharArray(TokenGetFirstString(tok), "type")) tok->type = TOKEN_TYPE;
+    else if (StrEqualCharArray(TokenGetFirstString(tok), "if")) tok->type = TOKEN_IF;
+    else if (StrEqualCharArray(TokenGetFirstString(tok), "else")) tok->type = TOKEN_ELSE;
+    else if (StrEqualCharArray(TokenGetFirstString(tok), "for")) tok->type = TOKEN_FOR;
+    else if (StrEqualCharArray(TokenGetFirstString(tok), "defer")) tok->type = TOKEN_DEFER;
+    else if (StrEqualCharArray(TokenGetFirstString(tok), "return")) tok->type = TOKEN_RETURN;
+    else if (StrEqualCharArray(TokenGetFirstString(tok), "break")) tok->type = TOKEN_BREAK;
+    else if (StrEqualCharArray(TokenGetFirstString(tok), "match")) tok->type = TOKEN_MATCH;
+    else if (StrEqualCharArray(TokenGetFirstString(tok), "case")) tok->type = TOKEN_CASE;
+    else if (StrEqualCharArray(TokenGetFirstString(tok), "struct")) tok->type = TOKEN_STRUCT;
+    else if (StrEqualCharArray(TokenGetFirstString(tok), "vocab")) tok->type = TOKEN_VOCAB;
+    else if (StrEqualCharArray(TokenGetFirstString(tok), "func")) tok->type = TOKEN_FUNC;
+    else if (StrEqualCharArray(TokenGetFirstString(tok), "mut")) tok->type = TOKEN_MUT;
 }
 
 
 bool ParseToken(struct tokenContext* tc, int* col, struct token* tok) {
+    *tok = (struct token){0};
     struct str line = StrListGetLast(tc->lines);
     if (!FindTokenStart(line, col)) return false;
 
     int colStart = *col;
-    tok->lineNr = StrListLen(tc->lines);
-    tok->str = StrSlice(line, *col, *col);
+    intListAppend(&(tok->lineNrs), StrListLen(tc->lines));
+    StrListAppend(&(tok->strs), StrSlice(line, *col, *col));
     tok->context = tc;
 
     ParseTokenSwitch(tc, tok, col);
-    StrSetLen(&(tok->str), *col - colStart);
+    StrSetLen(&(tok->strs.ptr[0]), *col - colStart);
 
     if (tok->type == TOKEN_IDENTIFIER) SpecifyIdentifier(tok);
     return true;
@@ -424,10 +447,9 @@ struct str ReadLine(FILE* fp, bool* eof) {
 
 
 struct token TokenEOF(struct tokenContext* tc) {
-    struct token tok;
+    struct token tok = (struct token){0};
     tok.type = TOKEN_EOF;
-    tok.lineNr = StrListLen(tc->lines);
-    tok.str = StrNew();
+    intListAppend(&(tok.lineNrs), StrListLen(tc->lines));
     tok.context = tc;
     return tok;
 }
@@ -489,14 +511,32 @@ void TokenRestart(struct tokenContext* tc) {
 }
 
 
-//TODO multiline tokens
-struct token TokenExtend(struct token base, struct token tail) { //assumes the tokens exist on the same line
-    if (base.lineNr != tail.lineNr) Error("base and tail tokens exist on different lines");
-    struct token ret;
-    ret.type = base.type;
-    ret.lineNr = base.lineNr;
-    ret.str = StrGetContainsBoth(base.str, tail.str);
+int tokenGetFirstLineNr(struct token tok) {
+    return tok.lineNrs.ptr[0];
+}
+
+
+int tokenGetLastLineNr(struct token tok) {
+    return tok.lineNrs.ptr[tok.lineNrs.len -1];
+}
+
+
+struct token TokenMerge(struct token base, struct token tail) {
+    if (base.context != tail.context) Error("tokens to be merged originate in different files");
+    struct token ret = (struct token){0};
+    ret.type = TOKEN_UNDEF;
+    ret.lineNrs = intListCopy(base.lineNrs);
+    ret.strs = StrListCopy(base.strs);
     ret.context = base.context;
+    int i = 0;
+    if (tokenGetLastLineNr(base) == tokenGetFirstLineNr(tail)) {
+        ret.strs.ptr[ret.strs.len -1] = StrGetContainsBoth(tokenGetLastString(base), TokenGetFirstString(tail));
+        i++;
+    }
+    for (; i < tail.lineNrs.len; i++) {
+        StrListAppend(&(ret.strs), tail.strs.ptr[i]);
+        intListAppend(&(ret.lineNrs), tail.lineNrs.ptr[i]);
+    }
     return ret;
 }
 

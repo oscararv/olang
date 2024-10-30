@@ -8,13 +8,19 @@
 #include "error.h"
 
 
+#define ARRAY_REF -1
+
+
 //vanilla types must be initialized at startup
 struct typeDef vanillaTypeTypeDef = {.complete = true};
 struct type vanillaTypeBool;
+struct type vanillaTypeBit8;
+struct type vanillaTypeBit16;
+struct type vanillaTypeBit32;
+struct type vanillaTypeBit64;
 struct type vanillaTypeInt8;
 struct type vanillaTypeInt16;
 struct type vanillaTypeInt32;
-struct type vanillaTypeInt64;
 struct type vanillaTypeInt64;
 struct type vanillaTypeFloat32;
 struct type vanillaTypeFloat64;
@@ -111,7 +117,21 @@ void pcListAppend(struct pcList* pcl, struct parserContext pc) {
 }
 
 
+struct type* isVanillaType(struct str name) {
+    if (StrEqual(name, vanillaTypeBool.name)) return &vanillaTypeBool;
+    if (StrEqual(name, vanillaTypeInt8.name)) return &vanillaTypeInt8;
+    if (StrEqual(name, vanillaTypeInt16.name)) return &vanillaTypeInt16;
+    if (StrEqual(name, vanillaTypeInt32.name)) return &vanillaTypeInt32;
+    if (StrEqual(name, vanillaTypeInt64.name)) return &vanillaTypeInt64;
+    if (StrEqual(name, vanillaTypeFloat32.name)) return &vanillaTypeFloat32;
+    if (StrEqual(name, vanillaTypeFloat64.name)) return &vanillaTypeFloat64;
+    return NULL;
+}
+
+
 bool typeListContains(struct typeList* tl, struct str name) {
+    struct type* t = isVanillaType(name);
+    if (t) return true;
     for (int i = 0; i < tl->len; i++) {
         if (StrEqual(tl->ptr[i].name, name)) return true;
     }
@@ -120,6 +140,8 @@ bool typeListContains(struct typeList* tl, struct str name) {
 
 
 bool typePtrListContains(struct typePtrList* tpl, struct str name) {
+    struct type* t = isVanillaType(name);
+    if (t) return true;
     for (int i = 0; i < tpl->len; i++) {
         if (StrEqual(tpl->ptr[i]->name, name)) return true;
     }
@@ -164,6 +186,8 @@ void typeListUpdate(struct typeList* tl, struct type t) {
 
 
 struct type* typeListGet(struct typeList* tl, struct str name) {
+    struct type* t = isVanillaType(name);
+    if (t) return t;
     for (int i = 0; i < tl->len; i++) {
         if (StrEqual(tl->ptr[i].name, name)) return tl->ptr + i;
     }
@@ -239,21 +263,7 @@ struct variable* pcGetVar(struct parserContext* pc, struct str name) {
 }
 
 
-struct type* isVanillaType(struct str name) {
-    if (StrEqual(name, vanillaTypeBool.name)) return &vanillaTypeBool;
-    if (StrEqual(name, vanillaTypeInt8.name)) return &vanillaTypeInt8;
-    if (StrEqual(name, vanillaTypeInt16.name)) return &vanillaTypeInt16;
-    if (StrEqual(name, vanillaTypeInt32.name)) return &vanillaTypeInt32;
-    if (StrEqual(name, vanillaTypeInt64.name)) return &vanillaTypeInt64;
-    if (StrEqual(name, vanillaTypeFloat32.name)) return &vanillaTypeFloat32;
-    if (StrEqual(name, vanillaTypeFloat64.name)) return &vanillaTypeFloat64;
-    return NULL;
-}
-
-
 struct type* pcGetTypePtr(struct parserContext* pc, struct str name) {
-    struct type* t = isVanillaType(name);
-    if (t) return t;
     if (isPublic(name)) return typeListGet(&(pc->publTypes), name);
     return typeListGet(&(pc->privTypes), name);
 }
@@ -299,7 +309,7 @@ struct typeList getEmbeddedStructs(struct varList* members) {
 
 struct type placeholderType(struct token nameTok) {
     struct type t = {0};
-    t.name = nameTok.str;
+    t.name = TokenGetFirstString(nameTok);
     t.tok = nameTok;
     t.bType = BASETYPE_PLACEHOLDER;
     t.def = typeDefEmpty();
@@ -313,7 +323,7 @@ struct type importType() {
     tDef->complete = true;
 
     struct type t = {0};
-    t.name = TOKEN_UNDEFINED.str;
+    t.name = StrNew();
     t.tok = TOKEN_UNDEFINED;
     t.bType = BASETYPE_IMPORT;
     t.def = tDef;
@@ -328,7 +338,7 @@ struct type structType(struct token nameTok, struct varList members) {
     tDef->embeddedStructs = getEmbeddedStructs(&members);
 
     struct type t = {0};
-    t.name = nameTok.str;
+    t.name = TokenGetFirstString(nameTok);
     t.tok = nameTok;
     t.bType = BASETYPE_STRUCT;
     t.def = tDef;
@@ -343,7 +353,7 @@ struct type vocabType(struct token nameTok, struct strList words) {
     tDef->words = words;
 
     struct type t = {0};
-    t.name = nameTok.str;
+    t.name = TokenGetFirstString(nameTok);
     t.tok = nameTok;
     t.bType = BASETYPE_VOCAB;
     t.def = tDef;
@@ -358,7 +368,7 @@ struct type funcType(struct token nameTok, struct varList args, struct typeList 
     tDef->rets = rets;
 
     struct type t = {0};
-    t.name = nameTok.str;
+    t.name = TokenGetFirstString(nameTok);
     t.tok = nameTok;
     t.bType = BASETYPE_FUNC;
     t.def = tDef;
@@ -367,7 +377,7 @@ struct type funcType(struct token nameTok, struct varList args, struct typeList 
 
 
 struct type aliasType(struct token nameTok, struct type oldNameT, struct typePtrList dependants) {
-    oldNameT.name = nameTok.str;
+    oldNameT.name = TokenGetFirstString(nameTok);
     oldNameT.tok = nameTok;
     oldNameT.dependants = dependants;
     return oldNameT;
@@ -394,7 +404,7 @@ void parseToken(struct parserContext* pc, struct token* tok, enum tokenType type
             strcat(msg, TokenTypeToString(type));
             errorMsg = msg;
         }
-        SyntaxErrorInvalidToken(*tok, errorMsg);
+        SyntaxErrorInvalidToken(TokenPeek(pc->tc), errorMsg);
     }
 }
 
@@ -422,7 +432,7 @@ struct operand* operandIntLiteralNoToken(long long intVal) {
 
 
 struct operand* operandIntLiteral(struct token valueTok) {
-    struct operand* op = operandIntLiteralNoToken(StrToLongLong(valueTok.str));
+    struct operand* op = operandIntLiteralNoToken(StrToLongLong(TokenGetFirstString(valueTok)));
     op->tok = valueTok;
     return op;
 }
@@ -434,7 +444,7 @@ struct operand* operandFloatLiteral(struct token valueTok) {
     op->type = vanillaTypeFloat64;
     op->type.constLiteral = true;
     op->valKnown = true;
-    op->floatVal = StrToDouble(valueTok.str);
+    op->floatVal = StrToDouble(TokenGetFirstString(valueTok));
     op->operation = OPERATION_NOOP;
     return op;
 }
@@ -446,17 +456,17 @@ struct operand* operandCharLiteral(struct token valueTok) {
     op->type = vanillaTypeInt8;
     op->type.constLiteral = true;
     op->valKnown = true;
-    op->intVal = StrToChar(valueTok.str);
+    op->intVal = StrToChar(TokenGetFirstString(valueTok));
     op->operation = OPERATION_NOOP;
     return op;
 }
 
 
 struct type stringType(struct token tok) {
-    struct type t = vanillaTypeInt8;
+    struct type t = vanillaTypeBit8;
     t.tok = tok;
     t.bType = BASETYPE_ARRAY;
-    t.arrBType = BASETYPE_INT8;
+    t.arrBType = BASETYPE_BIT8;
     return t;
 }
 
@@ -467,10 +477,20 @@ struct operand* operandStringLiteral(struct token valueTok) {
     op->type = stringType(valueTok);
     op->type.constLiteral = true;
     op->valKnown = true;
-    op->strVal = StrToString(valueTok.str);
+    op->arrVal = StrToString(TokenGetFirstString(valueTok));
     op->operation = OPERATION_NOOP;
     return op;
 }
+
+
+bool isBit(struct type t) {
+    if (t.bType == BASETYPE_BIT8) return true;
+    if (t.bType == BASETYPE_BIT16) return true;
+    if (t.bType == BASETYPE_BIT32) return true;
+    if (t.bType == BASETYPE_BIT64) return true;
+    return false;
+}
+
 
 
 bool isInt(struct type t) {
@@ -496,25 +516,21 @@ bool isNumber(struct type t) {
 }
 
 
-bool typeEquivalent(struct type a, struct type b) {
-    if (a.bType != b.bType) return false;
-    if (a.bType != BASETYPE_ARRAY && (a.arrBType != b.arrBType)) return false;
-    if ((!isNumber(a) || !isNumber(b)) && (a.def != b.def)) return false;
-    return true;
-}
-
-
-void assertCastable(struct operand* from, struct type to) {
-    if (isNumber(to) && isNumber(from->type)) return;
-    //TODO
+bool isCastable(struct operand* from, struct type to) {
+    if (isNumber(to) && isNumber(from->type)) return true;
+    if (to.bType == BASETYPE_ARRAY && to.arrBType == BASETYPE_BIT8) return true;
+    if (from->type.bType == BASETYPE_ARRAY && from->type.arrBType == BASETYPE_BIT8) return true;
+    return false;
 }
 
 
 bool tryParseUnaryTok(struct parserContext* pc, struct token* tok) {
     struct token tmpTok = TokenNext(pc->tc);
     switch (tmpTok.type) {
-        case OPERATION_LOGICAL_NOT: *tok = tmpTok; return true;
-        case OPERATION_BITWISE_COMPLEMENT: *tok = tmpTok; return true;
+        case TOKEN_ADD: *tok = tmpTok; return true;
+        case TOKEN_SUB: *tok = tmpTok; return true;
+        case TOKEN_LOGICAL_NOT: *tok = tmpTok; return true;
+        case TOKEN_BITWISE_COMPLEMENT: *tok = tmpTok; return true;
         default: TokenUnget(pc->tc, 1); return false;
     }
 }
@@ -523,23 +539,23 @@ bool tryParseUnaryTok(struct parserContext* pc, struct token* tok) {
 bool tryParseBinaryTok(struct parserContext* pc, struct token* tok) {
     struct token tmpTok = TokenNext(pc->tc);
     switch (tmpTok.type) {
-        case OPERATION_MUL: *tok = tmpTok; return true;
-        case OPERATION_DIV: *tok = tmpTok; return true;
-        case OPERATION_ADD: *tok = tmpTok; return true;
-        case OPERATION_SUB: *tok = tmpTok; return true;
-        case OPERATION_LOGICAL_EQUALS: *tok = tmpTok; return true;
-        case OPERATION_LOGICAL_AND: *tok = tmpTok; return true;
-        case OPERATION_LOGICAL_OR: *tok = tmpTok; return true;
-        case OPERATION_LOGICAL_LESS_THAN: *tok = tmpTok; return true;
-        case OPERATION_LOGICAL_LESS_THAN_OR_EQUAL: *tok = tmpTok; return true;
-        case OPERATION_LOGICAL_GREATER_THAN: *tok = tmpTok; return true;
-        case OPERATION_LOGICAL_GREATER_THAN_OR_EQUAL: *tok = tmpTok; return true;
-        case OPERATION_MODULO: *tok = tmpTok; return true;
-        case OPERATION_BITSHIFT_LEFT: *tok = tmpTok; return true;
-        case OPERATION_BITSHIFT_RIGHT: *tok = tmpTok; return true;
-        case OPERATION_BITWISE_AND: *tok = tmpTok; return true;
-        case OPERATION_BITWISE_OR: *tok = tmpTok; return true;
-        case OPERATION_BITWISE_XOR: *tok = tmpTok; return true;
+        case TOKEN_MUL: *tok = tmpTok; return true;
+        case TOKEN_DIV: *tok = tmpTok; return true;
+        case TOKEN_ADD: *tok = tmpTok; return true;
+        case TOKEN_SUB: *tok = tmpTok; return true;
+        case TOKEN_LOGICAL_EQUALS: *tok = tmpTok; return true;
+        case TOKEN_LOGICAL_AND: *tok = tmpTok; return true;
+        case TOKEN_LOGICAL_OR: *tok = tmpTok; return true;
+        case TOKEN_LOGICAL_LESS_THAN: *tok = tmpTok; return true;
+        case TOKEN_LOGICAL_LESS_THAN_OR_EQUAL: *tok = tmpTok; return true;
+        case TOKEN_LOGICAL_GREATER_THAN: *tok = tmpTok; return true;
+        case TOKEN_LOGICAL_GREATER_THAN_OR_EQUAL: *tok = tmpTok; return true;
+        case TOKEN_MODULO: *tok = tmpTok; return true;
+        case TOKEN_BITSHIFT_LEFT: *tok = tmpTok; return true;
+        case TOKEN_BITSHIFT_RIGHT: *tok = tmpTok; return true;
+        case TOKEN_BITWISE_AND: *tok = tmpTok; return true;
+        case TOKEN_BITWISE_OR: *tok = tmpTok; return true;
+        case TOKEN_BITWISE_XOR: *tok = tmpTok; return true;
         default: TokenUnget(pc->tc, 1); return false;
     }
 }
@@ -580,88 +596,93 @@ enum operationType operationFromTok(struct token tok) {
 }
 
 
+void evalUnary(struct operand* op) {
+    if (!(op->operands.ptr[0]->valKnown)) return;
+    switch(op->operation) {
+        case OPERATION_ADD: break;
+        case OPERATION_SUB: if (isInt(op->type)) op->intVal = -op->intVal; else op->floatVal = -op->floatVal; break;
+        case OPERATION_LOGICAL_NOT: if (op->intVal) op->intVal = 0; else op->intVal = 1; break;
+        case OPERATION_BITWISE_COMPLEMENT: op->intVal = ~(op->intVal); break;
+        default: break;
+    }
+    op->valKnown = true;
+}
+
+
 struct operand* unaryOperand(struct token unaryTok, struct operand* from) {
+    enum operationType oper = operationFromTok(unaryTok);
+    if (oper == OPERATION_ADD && !isNumber(from->type)) {
+        SyntaxErrorInvalidToken(from->tok, "addition only defined for numbers");
+        return NULL;
+    }
+    else if (oper == OPERATION_SUB && !isNumber(from->type)) {
+        SyntaxErrorInvalidToken(from->tok, "subraction only defined for numbers");
+        return NULL;
+    }
+    else if (oper == OPERATION_LOGICAL_NOT && from->type.bType != BASETYPE_BOOL) {
+        SyntaxErrorInvalidToken(from->tok, "logical not operand only defined for bool");
+        return NULL;
+    }
+    else if (!isInt(from->type)) {
+        SyntaxErrorInvalidToken(from->tok, "bitwise complement only defined for integers");
+        return NULL;
+    }
     struct operand* to = operandEmpty();
-    to->tok = TokenExtend(unaryTok, from->tok);
-    to->type = from->type;
+    *to = *from;
+    to->tok = TokenMerge(unaryTok, from->tok);
+    to->operands = opPtrListNew();
+    to->operation = oper;
     opPtrListAppend(&(to->operands), from);
-    to->operation = operationFromTok(unaryTok);
+    evalUnary(to);
     return to;
 }
 
 
-struct operand* parseExpr(struct parserContext* pc);
+struct operand* tryParseExpr(struct parserContext* pc, struct varList* localVars);
 bool tryParseVar(struct parserContext* pc, struct variable* v);
 bool tryParseType(struct parserContext* pc, struct type* t);
 
 
-struct operand* parseTypeCastOperand(struct parserContext* pc, struct type type) {
+void evalTypeCast(struct operand* op) {
+    struct operand* prev = op->operands.ptr[0];
+    if (!prev->valKnown) return;
+    if (isInt(op->type)) {
+        if (isFloat(prev->type)) op->intVal = (long long)(prev->floatVal);
+        else op->intVal = prev->intVal;
+    }
+    else if (isFloat(op->type)) {
+        if (isInt(prev->type)) op->floatVal = (double)(prev->intVal);
+        else op->floatVal = prev->floatVal;
+    }
+    else op->arrVal = prev->arrVal;
+    op->valKnown = true;
+}
+
+
+struct operand* tryParseTypeCastOperand(struct parserContext* pc, struct varList* localVars) {
+    struct type t;
+    if (!tryParseType(pc, &t)) return NULL;
     struct token tok;
     parseToken(pc, &tok, TOKEN_PAREN_OPEN, NULL);
-    struct operand* from = parseExpr(pc);
+    struct operand* from = tryParseExpr(pc, localVars);
+    if (!from) {
+        SyntaxErrorInvalidToken(TokenPeek(pc->tc), "expected expression");
+        return NULL;
+    }
     parseToken(pc, &tok, TOKEN_PAREN_CLOSE, NULL);
 
-    assertCastable(from, type);
+    if (!isCastable(from, t)) {
+        SyntaxErrorInvalidToken(from->tok, "expression has invalid type for cast");
+        return NULL;
+    }
     struct operand* to = operandEmpty();
-    to->tok = TokenExtend(type.tok, tok);
-    to->type = type;
+    to->tok = TokenMerge(t.tok, tok);
+    to->type = t;
     opPtrListAppend(&(to->operands), from);
     to->operation = OPERATION_TYPECAST;
+    evalTypeCast(to);
     return to;
 }
-
-
-struct operand* parseFuncCall(struct parserContext* pc, struct variable funcVar) {
-    //TODO
-    return NULL;
-}
-
-
-struct operand* tryParseBinOperand(struct parserContext* pc) {
-    bool unary = false;
-    struct token unaryTok;
-    if (tryParseUnaryTok(pc, &unaryTok)) unary = true;
-
-    struct operand* op = NULL;
-    struct variable v;
-    struct type t;
-    struct token parenTok;
-    if (tryParseToken(pc, &parenTok, TOKEN_PAREN_OPEN)) {
-        op = parseExpr(pc);
-        parseToken(pc, &parenTok, TOKEN_PAREN_CLOSE, NULL);
-    }
-    else if (tryParseVar(pc, &v)) {
-        if (v.type.bType == BASETYPE_FUNC) op = parseFuncCall(pc, v);
-        else op = v.value;
-    }
-    else if (tryParseType(pc, &t)) op = parseTypeCastOperand(pc, t);
-    else if (unary) TokenUnget(pc->tc, 1);
-    if (!op) return NULL;
-    if (unary) return unaryOperand(unaryTok, op);
-    return op;
-}
-
-
-enum tokenType binTokenEvalOrderBackwards[] = {
-    TOKEN_LOGICAL_OR,
-    TOKEN_LOGICAL_AND,
-    TOKEN_BITWISE_OR,
-    TOKEN_BITWISE_XOR,
-    TOKEN_BITWISE_AND,
-    TOKEN_LOGICAL_NOT_EQUALS,
-    TOKEN_LOGICAL_EQUALS,
-    TOKEN_LOGICAL_GREATER_THAN,
-    TOKEN_LOGICAL_GREATER_THAN_OR_EQUAL,
-    TOKEN_LOGICAL_LESS_THAN,
-    TOKEN_LOGICAL_LESS_THAN_OR_EQUAL,
-    TOKEN_BITSHIFT_LEFT,
-    TOKEN_BITSHIFT_RIGHT,
-    TOKEN_SUB,
-    TOKEN_ADD,
-    TOKEN_DIV,
-    TOKEN_MUL,
-    TOKEN_MODULO
-};
 
 
 int typeGetNumNBits(struct type t) {
@@ -708,18 +729,123 @@ void binOpPromoteConstLiteralsSharedType(struct type* a, struct type* b) {
 }
 
 
+//may promote constant literals
+bool typeEquivalent(struct type* a, struct type* b) {
+    binOpPromoteConstLiteralsSharedType(a, b);
+    if (a->bType != b->bType) return false;
+    if (a->bType == BASETYPE_ARRAY && (a->arrBType != b->arrBType)) return false;
+    if ((!isNumber(*a) || !isNumber(*b)) && (a->def != b->def)) return false;
+    return true;
+}
+
+
+struct opPtrList tryParseExprList(struct parserContext* pc, struct varList* localVars) {
+    struct opPtrList exprs = opPtrListNew();
+    struct operand* op = tryParseExpr(pc, localVars);
+    if (!op) return exprs;
+    opPtrListAppend(&exprs, op);
+
+    struct token tok;
+    while (tryParseToken(pc, &tok, TOKEN_COMMA)) {
+        op = tryParseExpr(pc, localVars);
+        if (!op) SyntaxErrorInvalidToken(TokenPeek(pc->tc), "expected expression");
+        opPtrListAppend(&exprs, op);
+    }
+    return exprs;
+}
+
+
+struct operand* parseFuncCall(struct parserContext* pc, struct variable funcVar, struct varList* localVars) {
+    struct token tok;
+    parseToken(pc, &tok, TOKEN_PAREN_OPEN, NULL);
+    struct opPtrList args = tryParseExprList(pc, localVars);
+    parseToken(pc, &tok, TOKEN_PAREN_CLOSE, NULL);
+    struct varList expected = funcVar.type.def->args;
+    if (expected.len != args.len) SyntaxErrorInvalidToken(tok, "invalid number of arguments");
+    for (int i = 0; i < expected.len; i++) {
+        if (!typeEquivalent(&(expected.ptr[i].type), &(args.ptr[i]->type))) {
+            SyntaxErrorInvalidToken(args.ptr[i]->tok, "expression has invalid type");
+        }
+    }
+
+    struct operand* op = operandEmpty();
+    op->tok = TokenMerge(funcVar.tok, tok);
+    op->operands = args;
+    op->operation = OPERATION_FUNCCALL;
+    return op;
+}
+
+
+struct operand* tryParseOperand(struct parserContext* pc, struct varList* localVars) {
+    struct token tok = TokenNext(pc->tc);
+    if (varListContains(localVars, TokenGetFirstString(tok))) return varListGet(localVars, TokenGetFirstString(tok))->value;
+    else if (tok.type == TOKEN_IDENTIFIER) {
+        TokenUnget(pc->tc, 1);
+        struct variable v;
+        if (tryParseVar(pc, &v)) return v.value;
+        else return NULL;
+    }
+    else if (tok.type == TOKEN_INT) return operandIntLiteral(tok);
+    else if (tok.type == TOKEN_FLOAT) return operandFloatLiteral(tok);
+    else if (tok.type == TOKEN_CHAR) return operandCharLiteral(tok);
+    else if (tok.type == TOKEN_STRING) return operandStringLiteral(tok);
+    TokenUnget(pc->tc, 1);
+    return NULL;
+}
+
+
+struct operand* tryParseExprOperand(struct parserContext* pc, struct varList* localVars) {
+    bool unary = false;
+    struct token unaryTok;
+    struct token parenTok;
+    struct operand* op = NULL;
+
+    if (tryParseUnaryTok(pc, &unaryTok)) unary = true;
+    if ((op = tryParseOperand(pc, localVars)));
+    else if ((op = tryParseTypeCastOperand(pc, localVars)));
+    else if (tryParseToken(pc, &parenTok, TOKEN_PAREN_OPEN)) {
+        op = tryParseExpr(pc, localVars);
+        parseToken(pc, &parenTok, TOKEN_PAREN_CLOSE, NULL);
+    }
+    else if (unary) TokenUnget(pc->tc, 1);
+    if (!op) return NULL;
+    if (unary) return unaryOperand(unaryTok, op);
+    return op;
+}
+
+
+enum tokenType binTokenEvalOrderBackwards[] = {
+    TOKEN_LOGICAL_OR,
+    TOKEN_LOGICAL_AND,
+    TOKEN_BITWISE_OR,
+    TOKEN_BITWISE_XOR,
+    TOKEN_BITWISE_AND,
+    TOKEN_LOGICAL_NOT_EQUALS,
+    TOKEN_LOGICAL_EQUALS,
+    TOKEN_LOGICAL_GREATER_THAN,
+    TOKEN_LOGICAL_GREATER_THAN_OR_EQUAL,
+    TOKEN_LOGICAL_LESS_THAN,
+    TOKEN_LOGICAL_LESS_THAN_OR_EQUAL,
+    TOKEN_BITSHIFT_LEFT,
+    TOKEN_BITSHIFT_RIGHT,
+    TOKEN_SUB,
+    TOKEN_ADD,
+    TOKEN_DIV,
+    TOKEN_MUL,
+    TOKEN_MODULO
+};
+
+
 bool binOpMergeArithmetic(struct type a, struct type b, struct type* resType) {
     if (!isNumber(a) || !isNumber(b)) return false;
-    binOpPromoteConstLiteralsSharedType(&a, &b);
-    if (!typeEquivalent(a, b)) return false;
+    if (!typeEquivalent(&a, &b)) return false;
     *resType = a;
-    return false;
+    return true;
 }
 
 
 bool binOpMergeUniversalLogical(struct type a, struct type b, struct type* resType) {
-    binOpPromoteConstLiteralsSharedType(&a, &b);
-    if (!typeEquivalent(a, b)) return false;
+    if (!typeEquivalent(&a, &b)) return false;
     *resType = vanillaTypeBool;
     return true;
 }
@@ -734,24 +860,23 @@ bool binOpMergeBooleanLogical(struct type a, struct type b, struct type* resType
 
 bool binOpMergeNumericLogical(struct type a, struct type b, struct type* resType) {
     if (!isNumber(a) || !isNumber(b)) return false;
-    binOpPromoteConstLiteralsSharedType(&a, &b);
-    if (!typeEquivalent(a, b)) return false;
+    if (!typeEquivalent(&a, &b)) return false;
     *resType = vanillaTypeBool;
     return true;
 }
 
 
 bool binOpMergeIntShift(struct type a, struct type b, struct type* resType) {
-    if (!isInt(a) || !isInt(b)) return false;
+    if (!(isInt(a) || isBit(a))) return false;
+    if (!isInt(b)) return false;
     *resType = a;
     return true;
 }
 
 
 bool binOpMergeBitwise(struct type a, struct type b, struct type* resType) {
-    if (!isInt(a) || !isInt(b)) return false;
-    binOpPromoteConstLiteralsSharedType(&a, &b);
-    if (!typeEquivalent(a, b)) return false;
+    if (!isBit(a) || !isBit(b)) return false;
+    if (!typeEquivalent(&a, &b)) return false;
     *resType = a;
     return true;
 }
@@ -806,25 +931,130 @@ bool isBinBitwise(enum operationType oper) {
 
 
 bool binOpMergeType(enum operationType opType, struct type a, struct type b, struct type* resType) {
+    if (isArithmetic(opType)) return binOpMergeArithmetic(a, b, resType);
     if (isBinUniversalLogical(opType)) return binOpMergeUniversalLogical(a, b, resType);
     if (isBinBooleanLogical(opType)) return binOpMergeBooleanLogical(a, b, resType);
     if (isNumericLogical(opType)) return binOpMergeNumericLogical(a, b, resType);
     if (isIntShift(opType)) return binOpMergeIntShift(a, b, resType);
-    if (isBinBooleanLogical(opType)) return binOpMergeBooleanLogical(a, b, resType);
+    if (isBinBitwise(opType)) return binOpMergeBitwise(a, b, resType);
     return false;
 }
 
 
-struct operand* evalBinOp(struct token binOpTok, struct operand* opA, struct operand* opB) {
+long long getAsInt(struct operand* op) {
+    if (isFloat(op->type)) return (long long)op->floatVal;
+    else return op->intVal;
+}
+
+
+double getAsFloat(struct operand* op) {
+    if (isInt(op->type)) return (double)op->intVal;
+    else return op->floatVal;
+}
+
+
+void evalBinary(struct operand* op) {
+    if (!(op->operands.ptr[0]->valKnown)) return;
+    if (!(op->operands.ptr[1]->valKnown)) return;
+    struct operand* opA = op->operands.ptr[0];
+    struct operand* opB = op->operands.ptr[1];
+    switch(op->operation) {
+        case OPERATION_MUL:
+            if (isInt(op->type)) op->intVal = getAsInt(opA) * getAsInt(opB);
+            else op->floatVal = getAsFloat(opA) * getAsFloat(opB);
+            break;
+
+        case OPERATION_DIV:
+            if (isInt(op->type)) op->intVal = getAsInt(opA) / getAsInt(opB);
+            else op->floatVal = getAsFloat(opA) / getAsFloat(opB);
+            break;
+
+        case OPERATION_ADD:
+            if (isInt(op->type)) op->intVal = getAsInt(opA) + getAsInt(opB);
+            else op->floatVal = getAsFloat(opA) + getAsFloat(opB);
+            break;
+
+        case OPERATION_SUB:
+            if (isInt(op->type)) op->intVal = getAsInt(opA) - getAsInt(opB);
+            else op->floatVal = getAsFloat(opA) - getAsFloat(opB);
+            break;
+
+        case OPERATION_LOGICAL_EQUALS:
+            //TODO
+            break;
+        case OPERATION_LOGICAL_NOT_EQUALS:
+            //TODO
+            break;
+
+        case OPERATION_LOGICAL_AND:
+            op->intVal = opA->intVal && opB->intVal;
+            break;
+
+        case OPERATION_LOGICAL_OR:
+            op->intVal = opA->intVal || opB->intVal;
+            break;
+
+        case OPERATION_LOGICAL_LESS_THAN:
+            if (isInt(op->type)) op->intVal = getAsInt(opA) < getAsInt(opB);
+            else op->intVal = getAsFloat(opA) < getAsFloat(opB);
+            break;
+
+        case OPERATION_LOGICAL_LESS_THAN_OR_EQUAL:
+            if (isInt(op->type)) op->intVal = getAsInt(opA) <= getAsInt(opB);
+            else op->intVal = getAsFloat(opA) <= getAsFloat(opB);
+            break;
+
+        case OPERATION_LOGICAL_GREATER_THAN:
+            if (isInt(op->type)) op->intVal = getAsInt(opA) > getAsInt(opB);
+            else op->intVal = getAsFloat(opA) > getAsFloat(opB);
+            break;
+
+        case OPERATION_LOGICAL_GREATER_THAN_OR_EQUAL:
+            if (isInt(op->type)) op->intVal = getAsInt(opA) >= getAsInt(opB);
+            else op->intVal = getAsFloat(opA) >= getAsFloat(opB);
+            break;
+
+        case OPERATION_MODULO:
+            op->intVal = opA->intVal % opB->intVal;
+            break;
+
+        case OPERATION_BITSHIFT_LEFT:
+            op->intVal = opA->intVal << opB->intVal;
+            break;
+
+        case OPERATION_BITSHIFT_RIGHT:
+            op->intVal = opA->intVal >> opB->intVal;
+            break;
+
+        case OPERATION_BITWISE_AND:
+            op->intVal = opA->intVal & opB->intVal;
+            break;
+
+        case OPERATION_BITWISE_OR:
+            op->intVal = opA->intVal | opB->intVal;
+            break;
+
+        case OPERATION_BITWISE_XOR:
+            op->intVal = opA->intVal ^ opB->intVal;
+            break;
+
+        default: break;
+    }
+    op->valKnown = true;
+}
+
+
+struct operand* binaryOperand(struct token binOpTok, struct operand* opA, struct operand* opB) {
     struct operand* op = operandEmpty();
-    op->tok = TokenExtend(opA->tok, opB->tok);
+    op->tok = TokenMerge(opA->tok, opB->tok);
     if (!binOpMergeType(operationFromTok(binOpTok), opA->type, opB->type, &(op->type))) {
-        SyntaxErrorInvalidToken(op->tok, "incompatible types");
+        SyntaxErrorInvalidToken(op->tok, "incompatible type");
     }
     opPtrListAppend(&(op->operands), opA);
     opPtrListAppend(&(op->operands), opB);
     op->operation = operationFromTok(binOpTok);
-    return NULL;
+    evalBinary(op);
+    return op;
 }
 
 
@@ -833,8 +1063,9 @@ struct operand* evalExpr(struct opPtrList operands, struct tokenList tl) {
         for (int j = 0; j < tl.len; j++) {
             if (tl.ptr[j].type == binTokenEvalOrderBackwards[i]) {
                 struct operand* opA = evalExpr(opPtrListSlice(operands, 0, j +1), TokenListSlice(tl, 0, j));
-                struct operand* opB = evalExpr(opPtrListSlice(operands, j +1, operands.len), TokenListSlice(tl, j +1, tl.len));
-                return evalBinOp(tl.ptr[j], opA, opB);
+                struct operand* opB = evalExpr(opPtrListSlice(operands, j +1, operands.len),
+                        TokenListSlice(tl, j +1, tl.len));
+                return binaryOperand(tl.ptr[j], opA, opB);
             }
         }
     }
@@ -842,15 +1073,19 @@ struct operand* evalExpr(struct opPtrList operands, struct tokenList tl) {
 }
 
 
-struct operand* tryParseExpr(struct parserContext* pc) {
+struct operand* tryParseExpr(struct parserContext* pc, struct varList* localVars) {
     struct opPtrList operands = opPtrListNew();
     struct tokenList binOps = TokenListNew();
-    struct operand* op = tryParseBinOperand(pc);
+    struct operand* op = tryParseExprOperand(pc, localVars);
+    if (!op) return NULL;
     opPtrListAppend(&operands, op);
+
     struct token binaryTok;
     while (tryParseBinaryTok(pc, &binaryTok)) {
         TokenListAppend(&binOps, binaryTok);
-        if (!tryParseBinOperand(pc)) SyntaxErrorInvalidToken(TokenPeek(pc->tc), "incomplete expression");
+        if (!(op = tryParseExprOperand(pc, localVars))) {
+            SyntaxErrorInvalidToken(TokenPeek(pc->tc), "incomplete expression");
+        }
         opPtrListAppend(&operands, op);
     }
     if (operands.len == 0) return NULL;
@@ -858,28 +1093,21 @@ struct operand* tryParseExpr(struct parserContext* pc) {
 }
 
 
-struct operand* parseExpr(struct parserContext* pc) {
-    struct operand* op = tryParseExpr(pc);
-    if (!op) SyntaxErrorInvalidToken(TokenPeek(pc->tc), "expected expression");
-    return op;
-}
-
-
 struct parserContext* getImportPc(struct parserContext* head, struct str alias) {
     struct variable* aliasVar = pcGetVar(head, alias);
-    return pcListGet(head->parsedFiles, aliasVar->value->strVal);
+    return pcListGet(head->parsedFiles, aliasVar->value->arrVal);
 }
 
 
 bool tryParseImportAlias(struct parserContext* pc, struct parserContext** import, struct token* aliasTok) {
     struct token tok;
     if (!tryParseToken(pc, &tok, TOKEN_IDENTIFIER)) return false;
-    if (!pcContainsVar(pc, tok.str)) {
+    if (!pcContainsVar(pc, TokenGetFirstString(tok))) {
         TokenUnget(pc->tc, 1);
         return false;
     }
     *aliasTok = tok;
-    *import = getImportPc(pc, tok.str);
+    *import = getImportPc(pc, TokenGetFirstString(tok));
     return true;
 }
 
@@ -893,15 +1121,15 @@ struct type* tryParseTypeIdentifier(struct parserContext* pc, struct str* name, 
         if (import) TokenUnget(pc->tc, 2);
         return NULL;
     }
-    *name = tok.str;
-    if (import) *typeToken = TokenExtend(*typeToken, tok);
+    *name = TokenGetFirstString(tok);
+    if (import) *typeToken = TokenMerge(*typeToken, tok);
     else *typeToken = tok;
 
-    if (typeListContains(&(typeSource->publTypes), tok.str)) {
-        return typeListGet(&(typeSource->publTypes), tok.str);
+    if (typeListContains(&(typeSource->publTypes), TokenGetFirstString(tok))) {
+        return typeListGet(&(typeSource->publTypes), TokenGetFirstString(tok));
     }
-    else if (!import && typeListContains(&(typeSource->privTypes), tok.str)) {
-        return typeListGet(&(typeSource->privTypes), tok.str);
+    else if (!import && typeListContains(&(typeSource->privTypes), TokenGetFirstString(tok))) {
+        return typeListGet(&(typeSource->privTypes), TokenGetFirstString(tok));
     }
     if (import) TokenUnget(pc->tc, 3);
     else TokenUnget(pc->tc, 1);
@@ -913,15 +1141,16 @@ void parseTypeIsStructInstantiation(struct parserContext* pc, struct type* t) {
     struct token tok;
     if (t->bType == BASETYPE_STRUCT && tryParseToken(pc, &tok, TOKEN_CURLYBRACKET_OPEN)) {
         parseToken(pc, &tok, TOKEN_CURLYBRACKET_CLOSE, NULL);
-        t->tok = TokenExtend(t->tok, tok);
+        t->tok = TokenMerge(t->tok, tok);
         t->ref = false;
     }
 }
 
 
-void assertIsValidArrLen(struct operand* op) {
+void assertIsValidArrTypeLen(struct operand* op) {
+    if (!op->valKnown) SyntaxErrorInvalidToken(op->tok, "value must be computable at compile time");
     if (!isInt(op->type)) SyntaxErrorInvalidToken(op->tok, "array length must be an integer");
-    //TODO check value
+    if (op->intVal <= 0) SyntaxErrorInvalidToken(op->tok, "arrays cannot have negative or zero length");
 }
 
 
@@ -931,10 +1160,11 @@ void parseTypeIsArray(struct parserContext* pc, struct type* t) {
     while (tryParseToken(pc, &tok, TOKEN_SQUAREBRACKET_OPEN)) {
         isArray = true;
         struct operand* arrLen;
-        if ((arrLen = tryParseExpr(pc))) assertIsValidArrLen(arrLen);
+        struct varList vl = varListNew();
+        if ((arrLen = tryParseExpr(pc, &vl))) assertIsValidArrTypeLen(arrLen);
         else arrLen = operandIntLiteralNoToken(ARRAY_REF);
         parseToken(pc, &tok, TOKEN_SQUAREBRACKET_CLOSE, NULL);
-        t->tok = TokenExtend(t->tok, tok);
+        t->tok = TokenMerge(t->tok, tok);
         opPtrListAppend(&(t->arrLenghts), arrLen);
     }
     if (isArray) {
@@ -976,15 +1206,15 @@ struct variable* tryParseVarIdentifier(struct parserContext* pc, struct str* nam
         if (import) TokenUnget(pc->tc, 2);
         return NULL;
     }
-    *name = tok.str;
-    if (import) *varTok = TokenExtend(*varTok, tok);
+    *name = TokenGetFirstString(tok);
+    if (import) *varTok = TokenMerge(*varTok, tok);
     else *varTok = tok;
 
-    if (varListContains(&(varSource->publVars), tok.str)) {
-        return varListGet(&(varSource->publVars), tok.str);
+    if (varListContains(&(varSource->publVars), TokenGetFirstString(tok))) {
+        return varListGet(&(varSource->publVars), TokenGetFirstString(tok));
     }
-    else if (!import && varListContains(&(varSource->privVars), tok.str)) {
-        return varListGet(&(varSource->privVars), tok.str);
+    else if (!import && varListContains(&(varSource->privVars), TokenGetFirstString(tok))) {
+        return varListGet(&(varSource->privVars), TokenGetFirstString(tok));
     }
     if (import) TokenUnget(pc->tc, 3);
     else TokenUnget(pc->tc, 1);
@@ -1012,27 +1242,9 @@ struct variable parseVar(struct parserContext* pc) {
 }
 
 
-struct operand* parseOperand(struct parserContext* pc, struct varList* localVars) {
-    struct token tok = TokenNext(pc->tc);
-    if (varListContains(localVars, tok.str)) return varListGet(localVars, tok.str)->value;
-    else if (tok.type == TOKEN_IDENTIFIER) {
-        TokenUnget(pc->tc, 1);
-        return parseVar(pc).value;
-    }
-    else {
-        if (tok.type == TOKEN_INT) return operandIntLiteral(tok);
-        if (tok.type == TOKEN_FLOAT) return operandFloatLiteral(tok);
-        if (tok.type == TOKEN_CHAR) return operandCharLiteral(tok);
-        if (tok.type == TOKEN_STRING) return operandStringLiteral(tok);
-        SyntaxErrorInvalidToken(tok, "expected expression");
-    }
-    exit(EXIT_FAILURE); //unreachable
-}
-
-
 struct variable varNew(struct token nameTok, struct type t) {
     struct variable v;
-    v.name = nameTok.str;
+    v.name = TokenGetFirstString(nameTok);
     v.tok = nameTok;
     v.type = t;
     v.value = NULL;
@@ -1043,7 +1255,7 @@ struct variable varNew(struct token nameTok, struct type t) {
 void parseStructTypeDefMember(struct parserContext* pc, struct str structName, struct varList* members) {
     struct token tok;
     parseToken(pc, &tok, TOKEN_IDENTIFIER, "expected variable identifier");
-    if (varListContains(members, tok.str)) SyntaxErrorInvalidToken(tok, "duplicate member name");
+    if (varListContains(members, TokenGetFirstString(tok))) SyntaxErrorInvalidToken(tok, "duplicate member name");
     struct type t = parseType(pc);
     if (t.bType == BASETYPE_STRUCT && !(t.ref)) {
         if (StrEqual(structName, t.name)) {
@@ -1072,7 +1284,7 @@ struct varList parseStructTypeDefMembers(struct parserContext* pc, struct str st
 
 
 void parseStructTypeDef(struct parserContext* pc, struct token nameTok) {
-    struct varList members = parseStructTypeDefMembers(pc, nameTok.str);
+    struct varList members = parseStructTypeDefMembers(pc, TokenGetFirstString(nameTok));
     updateType(pc, structType(nameTok, members));
 }
 
@@ -1080,8 +1292,8 @@ void parseStructTypeDef(struct parserContext* pc, struct token nameTok) {
 void parseVocabTypeDefMember(struct parserContext* pc, struct strList* list) {
     struct token tok;
     parseToken(pc, &tok, TOKEN_IDENTIFIER, "expected word");
-    if (StrListExists(list, tok.str)) SyntaxErrorInvalidToken(tok, "duplicate vocabulary word");
-    StrListAppend(list, tok.str);
+    if (StrListExists(list, TokenGetFirstString(tok))) SyntaxErrorInvalidToken(tok, "duplicate vocabulary word");
+    StrListAppend(list, TokenGetFirstString(tok));
 }
 
 
@@ -1203,7 +1415,7 @@ void parseAliasTypeDef(struct parserContext* pc, struct token nameTok) {
     struct type* referenced = tryParseTypeIdentifier(pc, &name, &refTok);
     if (!referenced) SyntaxErrorInvalidToken(TokenNext(pc->tc), "unknown type");
 
-    struct type* alias = pcGetTypePtr(pc, nameTok.str);
+    struct type* alias = pcGetTypePtr(pc, TokenGetFirstString(nameTok));
     if (baseTypeComplete(referenced)) {
         updateType(pc, aliasType(nameTok, *referenced, alias->dependants));
     }
@@ -1259,7 +1471,7 @@ void parseFileFirstPass(struct parserContext* pc);
 bool pcContainsFileName(struct parserContext* pc, struct str fileName) {
     for (int i = 0; i < pc->publVars.len; i++) {
         struct variable var = pc->publVars.ptr[i];
-        if(var.type.bType == BASETYPE_IMPORT  && StrEqual(var.value->strVal, fileName)) {
+        if(var.type.bType == BASETYPE_IMPORT  && StrEqual(var.value->arrVal, fileName)) {
             return true;
         }
     }
@@ -1271,7 +1483,7 @@ void parseImportFirstPass(struct parserContext* pc) {
     struct token fileNameTok;
     struct token aliasTok;
     parseToken(pc, &fileNameTok, TOKEN_STRING, "expected import file name string");
-    struct str fileName = StrSlice(fileNameTok.str, 1, StrGetLen(fileNameTok.str) - 1);
+    struct str fileName = StrSlice(TokenGetFirstString(fileNameTok), 1, StrGetLen(TokenGetFirstString(fileNameTok)) - 1);
     if (StrEqual(fileName, pc->fileName)) {
         SyntaxErrorInvalidToken(fileNameTok, "files may not import themselves");
     }
@@ -1279,7 +1491,7 @@ void parseImportFirstPass(struct parserContext* pc) {
         SyntaxErrorInvalidToken(fileNameTok, "file already imported in this name space");
     }
     parseToken(pc, &aliasTok, TOKEN_IDENTIFIER, "expected import alias");
-    if (pcContainsVar(pc, aliasTok.str)) {
+    if (pcContainsVar(pc, TokenGetFirstString(aliasTok))) {
         SyntaxErrorInvalidToken(aliasTok, "file alias already in use");
     }
     if (!pcListContains(pc->parsedFiles, fileName)) {
@@ -1326,7 +1538,7 @@ void parseBaseTypes(struct parserContext* pc) {
     while ((tok = TokenNext(pc->tc)).type != TOKEN_EOF) {
         if (tok.type == TOKEN_TYPE) {
             parseToken(pc, &nameTok, TOKEN_IDENTIFIER, "expected type name");
-            struct type* t = pcGetTypePtr(pc, nameTok.str);
+            struct type* t = pcGetTypePtr(pc, TokenGetFirstString(nameTok));
             tok = TokenNext(pc->tc);
             switch(tok.type) {
                 case TOKEN_IDENTIFIER: TokenUnget(pc->tc, 1); parseAliasTypeDef(pc, nameTok); break;
@@ -1344,8 +1556,8 @@ void parseBaseTypes(struct parserContext* pc) {
 void parseFuncArgVarDeclaration(struct parserContext* pc, struct varList* args) {
     struct token tok;
     parseToken(pc, &tok, TOKEN_IDENTIFIER, "expected variable identifier");
-    if (isPublic(tok.str)) SyntaxErrorInvalidToken(tok, "local variables may not be capitalized");
-    if (varListContains(args, tok.str)) SyntaxErrorInvalidToken(tok, "duplicate argument name");
+    if (isPublic(TokenGetFirstString(tok))) SyntaxErrorInvalidToken(tok, "local variables may not be capitalized");
+    if (varListContains(args, TokenGetFirstString(tok))) SyntaxErrorInvalidToken(tok, "duplicate argument name");
     varListAppend(args, varNew(tok, parseFuncArgType(pc)));
 }
 
@@ -1423,12 +1635,16 @@ struct type vanillaType(char* name, enum baseType bType) {
 
 void initVanillaTypes() {
     vanillaTypeBool = vanillaType("bool", BASETYPE_BOOL);
-    vanillaTypeInt8 = vanillaType("int8", BASETYPE_BOOL);
-    vanillaTypeInt16 = vanillaType("int16", BASETYPE_BOOL);
-    vanillaTypeInt32 = vanillaType("int32", BASETYPE_BOOL);
-    vanillaTypeInt64 = vanillaType("int64", BASETYPE_BOOL);
-    vanillaTypeFloat32 = vanillaType("float32", BASETYPE_BOOL);
-    vanillaTypeFloat64 = vanillaType("float64", BASETYPE_BOOL);
+    vanillaTypeBit8 = vanillaType("bit8", BASETYPE_BIT8);
+    vanillaTypeBit16 = vanillaType("bit16", BASETYPE_BIT16);
+    vanillaTypeBit32 = vanillaType("bit32", BASETYPE_BIT32);
+    vanillaTypeBit64 = vanillaType("bit64", BASETYPE_BIT64);
+    vanillaTypeInt8 = vanillaType("int8", BASETYPE_INT8);
+    vanillaTypeInt16 = vanillaType("int16", BASETYPE_INT16);
+    vanillaTypeInt32 = vanillaType("int32", BASETYPE_INT32);
+    vanillaTypeInt64 = vanillaType("int64", BASETYPE_INT64);
+    vanillaTypeFloat32 = vanillaType("float32", BASETYPE_FLOAT32);
+    vanillaTypeFloat64 = vanillaType("float64", BASETYPE_FLOAT64);
 }
 
 

@@ -65,10 +65,17 @@ enum tokenType {
 };
 
 
+struct intList {
+    int len;
+    int cap;
+    int* ptr;
+};
+
+
 struct token {
     enum tokenType type;
-    int lineNr;
-    struct str str;
+    struct intList lineNrs;
+    struct strList strs;
     struct tokenContext* context;
 };
 
@@ -97,8 +104,7 @@ struct tokenContext {
 };
 
 
-#define LINE_NR_UNDEFINED -1
-static const struct token TOKEN_UNDEFINED = {.type = TOKEN_UNDEF, .lineNr = LINE_NR_UNDEFINED};
+static const struct token TOKEN_UNDEFINED = {.type = TOKEN_UNDEF};
 
 
 struct tokenList TokenListNew();
@@ -109,7 +115,7 @@ struct token TokenNext(struct tokenContext* tc);
 struct token TokenPeek(struct tokenContext* tc);
 void TokenUnget(struct tokenContext* tc, int n);
 void TokenRestart(struct tokenContext* tc);
-struct token TokenExtend(struct token base, struct token tail); //assumes the tokens exist on the same line
+struct token TokenMerge(struct token base, struct token tail);
 char* TokenTypeToString(enum tokenType t);
 
 
