@@ -10,7 +10,7 @@ type MyStructure struct {
     self MyStructure,
     mst MST2{},
     myInt MyInt,
-    alsoMyInt tst.AlsoMyInt[(2 + 2) +int32(-6 + 0.8)],
+    alsoMyInt tst.AlsoMyInt[(2 + 2) + int32(-4 + 0.3)],
     myInt2 int32[2]
 }
 

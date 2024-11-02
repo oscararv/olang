@@ -188,14 +188,3 @@ char StrToChar(struct str s) {
 struct str StrToString(struct str s) {
     return StrSlice(s, 1, StrGetLen(s) -1);
 }
-
-
-struct strList StrListCopy(struct strList list) {
-    struct strList new = list;
-    new.ptr = malloc(sizeof(struct str) * new.cap);
-    CheckPtr(new.ptr);
-    for (int i = 0; i < list.len; i++) {
-        new.ptr[i] = list.ptr[i];
-    }
-    return new;
-}

@@ -309,7 +309,7 @@ struct typeList getEmbeddedStructs(struct varList* members) {
 
 struct type placeholderType(struct token nameTok) {
     struct type t = {0};
-    t.name = TokenGetFirstString(nameTok);
+    t.name = nameTok.str;
     t.tok = nameTok;
     t.bType = BASETYPE_PLACEHOLDER;
     t.def = typeDefEmpty();
@@ -338,7 +338,7 @@ struct type structType(struct token nameTok, struct varList members) {
     tDef->embeddedStructs = getEmbeddedStructs(&members);
 
     struct type t = {0};
-    t.name = TokenGetFirstString(nameTok);
+    t.name = nameTok.str;
     t.tok = nameTok;
     t.bType = BASETYPE_STRUCT;
     t.def = tDef;
@@ -353,7 +353,7 @@ struct type vocabType(struct token nameTok, struct strList words) {
     tDef->words = words;
 
     struct type t = {0};
-    t.name = TokenGetFirstString(nameTok);
+    t.name = nameTok.str;
     t.tok = nameTok;
     t.bType = BASETYPE_VOCAB;
     t.def = tDef;
@@ -368,7 +368,7 @@ struct type funcType(struct token nameTok, struct varList args, struct typeList 
     tDef->rets = rets;
 
     struct type t = {0};
-    t.name = TokenGetFirstString(nameTok);
+    t.name = nameTok.str;
     t.tok = nameTok;
     t.bType = BASETYPE_FUNC;
     t.def = tDef;
@@ -377,7 +377,7 @@ struct type funcType(struct token nameTok, struct varList args, struct typeList 
 
 
 struct type aliasType(struct token nameTok, struct type oldNameT, struct typePtrList dependants) {
-    oldNameT.name = TokenGetFirstString(nameTok);
+    oldNameT.name = nameTok.str;
     oldNameT.tok = nameTok;
     oldNameT.dependants = dependants;
     return oldNameT;
@@ -432,7 +432,7 @@ struct operand* operandIntLiteralNoToken(long long intVal) {
 
 
 struct operand* operandIntLiteral(struct token valueTok) {
-    struct operand* op = operandIntLiteralNoToken(StrToLongLong(TokenGetFirstString(valueTok)));
+    struct operand* op = operandIntLiteralNoToken(StrToLongLong(valueTok.str));
     op->tok = valueTok;
     return op;
 }
@@ -444,7 +444,7 @@ struct operand* operandFloatLiteral(struct token valueTok) {
     op->type = vanillaTypeFloat64;
     op->type.constLiteral = true;
     op->valKnown = true;
-    op->floatVal = StrToDouble(TokenGetFirstString(valueTok));
+    op->floatVal = StrToDouble(valueTok.str);
     op->operation = OPERATION_NOOP;
     return op;
 }
@@ -456,7 +456,7 @@ struct operand* operandCharLiteral(struct token valueTok) {
     op->type = vanillaTypeInt8;
     op->type.constLiteral = true;
     op->valKnown = true;
-    op->intVal = StrToChar(TokenGetFirstString(valueTok));
+    op->intVal = StrToChar(valueTok.str);
     op->operation = OPERATION_NOOP;
     return op;
 }
@@ -477,7 +477,7 @@ struct operand* operandStringLiteral(struct token valueTok) {
     op->type = stringType(valueTok);
     op->type.constLiteral = true;
     op->valKnown = true;
-    op->arrVal = StrToString(TokenGetFirstString(valueTok));
+    op->arrVal = StrToString(valueTok.str);
     op->operation = OPERATION_NOOP;
     return op;
 }
@@ -778,7 +778,7 @@ struct operand* parseFuncCall(struct parserContext* pc, struct variable funcVar,
 
 struct operand* tryParseOperand(struct parserContext* pc, struct varList* localVars) {
     struct token tok = TokenNext(pc->tc);
-    if (varListContains(localVars, TokenGetFirstString(tok))) return varListGet(localVars, TokenGetFirstString(tok))->value;
+    if (varListContains(localVars, tok.str)) return varListGet(localVars, tok.str)->value;
     else if (tok.type == TOKEN_IDENTIFIER) {
         TokenUnget(pc->tc, 1);
         struct variable v;
@@ -1102,12 +1102,12 @@ struct parserContext* getImportPc(struct parserContext* head, struct str alias) 
 bool tryParseImportAlias(struct parserContext* pc, struct parserContext** import, struct token* aliasTok) {
     struct token tok;
     if (!tryParseToken(pc, &tok, TOKEN_IDENTIFIER)) return false;
-    if (!pcContainsVar(pc, TokenGetFirstString(tok))) {
+    if (!pcContainsVar(pc, tok.str)) {
         TokenUnget(pc->tc, 1);
         return false;
     }
     *aliasTok = tok;
-    *import = getImportPc(pc, TokenGetFirstString(tok));
+    *import = getImportPc(pc, tok.str);
     return true;
 }
 
@@ -1121,15 +1121,15 @@ struct type* tryParseTypeIdentifier(struct parserContext* pc, struct str* name, 
         if (import) TokenUnget(pc->tc, 2);
         return NULL;
     }
-    *name = TokenGetFirstString(tok);
+    *name = tok.str;
     if (import) *typeToken = TokenMerge(*typeToken, tok);
     else *typeToken = tok;
 
-    if (typeListContains(&(typeSource->publTypes), TokenGetFirstString(tok))) {
-        return typeListGet(&(typeSource->publTypes), TokenGetFirstString(tok));
+    if (typeListContains(&(typeSource->publTypes), tok.str)) {
+        return typeListGet(&(typeSource->publTypes), tok.str);
     }
-    else if (!import && typeListContains(&(typeSource->privTypes), TokenGetFirstString(tok))) {
-        return typeListGet(&(typeSource->privTypes), TokenGetFirstString(tok));
+    else if (!import && typeListContains(&(typeSource->privTypes), tok.str)) {
+        return typeListGet(&(typeSource->privTypes), tok.str);
     }
     if (import) TokenUnget(pc->tc, 3);
     else TokenUnget(pc->tc, 1);
@@ -1206,15 +1206,15 @@ struct variable* tryParseVarIdentifier(struct parserContext* pc, struct str* nam
         if (import) TokenUnget(pc->tc, 2);
         return NULL;
     }
-    *name = TokenGetFirstString(tok);
+    *name = tok.str;
     if (import) *varTok = TokenMerge(*varTok, tok);
     else *varTok = tok;
 
-    if (varListContains(&(varSource->publVars), TokenGetFirstString(tok))) {
-        return varListGet(&(varSource->publVars), TokenGetFirstString(tok));
+    if (varListContains(&(varSource->publVars), tok.str)) {
+        return varListGet(&(varSource->publVars), tok.str);
     }
-    else if (!import && varListContains(&(varSource->privVars), TokenGetFirstString(tok))) {
-        return varListGet(&(varSource->privVars), TokenGetFirstString(tok));
+    else if (!import && varListContains(&(varSource->privVars), tok.str)) {
+        return varListGet(&(varSource->privVars), tok.str);
     }
     if (import) TokenUnget(pc->tc, 3);
     else TokenUnget(pc->tc, 1);
@@ -1244,7 +1244,7 @@ struct variable parseVar(struct parserContext* pc) {
 
 struct variable varNew(struct token nameTok, struct type t) {
     struct variable v;
-    v.name = TokenGetFirstString(nameTok);
+    v.name = nameTok.str;
     v.tok = nameTok;
     v.type = t;
     v.value = NULL;
@@ -1255,7 +1255,7 @@ struct variable varNew(struct token nameTok, struct type t) {
 void parseStructTypeDefMember(struct parserContext* pc, struct str structName, struct varList* members) {
     struct token tok;
     parseToken(pc, &tok, TOKEN_IDENTIFIER, "expected variable identifier");
-    if (varListContains(members, TokenGetFirstString(tok))) SyntaxErrorInvalidToken(tok, "duplicate member name");
+    if (varListContains(members, tok.str)) SyntaxErrorInvalidToken(tok, "duplicate member name");
     struct type t = parseType(pc);
     if (t.bType == BASETYPE_STRUCT && !(t.ref)) {
         if (StrEqual(structName, t.name)) {
@@ -1284,7 +1284,7 @@ struct varList parseStructTypeDefMembers(struct parserContext* pc, struct str st
 
 
 void parseStructTypeDef(struct parserContext* pc, struct token nameTok) {
-    struct varList members = parseStructTypeDefMembers(pc, TokenGetFirstString(nameTok));
+    struct varList members = parseStructTypeDefMembers(pc, nameTok.str);
     updateType(pc, structType(nameTok, members));
 }
 
@@ -1292,8 +1292,8 @@ void parseStructTypeDef(struct parserContext* pc, struct token nameTok) {
 void parseVocabTypeDefMember(struct parserContext* pc, struct strList* list) {
     struct token tok;
     parseToken(pc, &tok, TOKEN_IDENTIFIER, "expected word");
-    if (StrListExists(list, TokenGetFirstString(tok))) SyntaxErrorInvalidToken(tok, "duplicate vocabulary word");
-    StrListAppend(list, TokenGetFirstString(tok));
+    if (StrListExists(list, tok.str)) SyntaxErrorInvalidToken(tok, "duplicate vocabulary word");
+    StrListAppend(list, tok.str);
 }
 
 
@@ -1415,7 +1415,7 @@ void parseAliasTypeDef(struct parserContext* pc, struct token nameTok) {
     struct type* referenced = tryParseTypeIdentifier(pc, &name, &refTok);
     if (!referenced) SyntaxErrorInvalidToken(TokenNext(pc->tc), "unknown type");
 
-    struct type* alias = pcGetTypePtr(pc, TokenGetFirstString(nameTok));
+    struct type* alias = pcGetTypePtr(pc, nameTok.str);
     if (baseTypeComplete(referenced)) {
         updateType(pc, aliasType(nameTok, *referenced, alias->dependants));
     }
@@ -1483,7 +1483,7 @@ void parseImportFirstPass(struct parserContext* pc) {
     struct token fileNameTok;
     struct token aliasTok;
     parseToken(pc, &fileNameTok, TOKEN_STRING, "expected import file name string");
-    struct str fileName = StrSlice(TokenGetFirstString(fileNameTok), 1, StrGetLen(TokenGetFirstString(fileNameTok)) - 1);
+    struct str fileName = StrSlice(fileNameTok.str, 1, StrGetLen(fileNameTok.str) - 1);
     if (StrEqual(fileName, pc->fileName)) {
         SyntaxErrorInvalidToken(fileNameTok, "files may not import themselves");
     }
@@ -1491,7 +1491,7 @@ void parseImportFirstPass(struct parserContext* pc) {
         SyntaxErrorInvalidToken(fileNameTok, "file already imported in this name space");
     }
     parseToken(pc, &aliasTok, TOKEN_IDENTIFIER, "expected import alias");
-    if (pcContainsVar(pc, TokenGetFirstString(aliasTok))) {
+    if (pcContainsVar(pc, aliasTok.str)) {
         SyntaxErrorInvalidToken(aliasTok, "file alias already in use");
     }
     if (!pcListContains(pc->parsedFiles, fileName)) {
@@ -1538,7 +1538,7 @@ void parseBaseTypes(struct parserContext* pc) {
     while ((tok = TokenNext(pc->tc)).type != TOKEN_EOF) {
         if (tok.type == TOKEN_TYPE) {
             parseToken(pc, &nameTok, TOKEN_IDENTIFIER, "expected type name");
-            struct type* t = pcGetTypePtr(pc, TokenGetFirstString(nameTok));
+            struct type* t = pcGetTypePtr(pc, nameTok.str);
             tok = TokenNext(pc->tc);
             switch(tok.type) {
                 case TOKEN_IDENTIFIER: TokenUnget(pc->tc, 1); parseAliasTypeDef(pc, nameTok); break;
@@ -1556,8 +1556,8 @@ void parseBaseTypes(struct parserContext* pc) {
 void parseFuncArgVarDeclaration(struct parserContext* pc, struct varList* args) {
     struct token tok;
     parseToken(pc, &tok, TOKEN_IDENTIFIER, "expected variable identifier");
-    if (isPublic(TokenGetFirstString(tok))) SyntaxErrorInvalidToken(tok, "local variables may not be capitalized");
-    if (varListContains(args, TokenGetFirstString(tok))) SyntaxErrorInvalidToken(tok, "duplicate argument name");
+    if (isPublic(tok.str)) SyntaxErrorInvalidToken(tok, "local variables may not be capitalized");
+    if (varListContains(args, tok.str)) SyntaxErrorInvalidToken(tok, "duplicate argument name");
     varListAppend(args, varNew(tok, parseFuncArgType(pc)));
 }
 

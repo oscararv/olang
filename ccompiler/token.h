@@ -65,18 +65,12 @@ enum tokenType {
 };
 
 
-struct intList {
-    int len;
-    int cap;
-    int* ptr;
-};
-
-
 struct token {
     enum tokenType type;
-    struct intList lineNrs;
-    struct strList strs;
+    int lineNr;
+    struct str str;
     struct tokenContext* context;
+    bool multiLine;
 };
 
 
