@@ -11,6 +11,15 @@
 #define ARRAY_REF -1
 
 
+static int ADDR_ID = 1; //used for coparing structs array and functions
+
+
+int addrIdNew() {
+    ADDR_ID++;
+    return ADDR_ID;
+}
+
+
 //vanilla types must be initialized at startup
 struct typeDef vanillaTypeTypeDef = {.complete = true};
 struct type vanillaTypeBool;
@@ -767,12 +776,20 @@ struct operand* parseFuncCall(struct parserContext* pc, struct variable funcVar,
             SyntaxErrorInvalidToken(args.ptr[i]->tok, "expression has invalid type");
         }
     }
+    struct operand* funcOp = operandEmpty();
+    funcOp->tok = TokenMerge(funcVar.tok, tok);
+    funcOp->operands = args;
+    funcOp->operation = OPERATION_FUNCCALL;
 
-    struct operand* op = operandEmpty();
-    op->tok = TokenMerge(funcVar.tok, tok);
-    op->operands = args;
-    op->operation = OPERATION_FUNCCALL;
-    return op;
+    for (int i = 0; i < funcVar.type.def->rets.len; i++) {
+        struct operand* retOp = operandEmpty();
+        retOp->tok = funcOp->tok;
+        retOp->type = funcVar.type.def->rets.ptr[i];
+        opPtrListAppend(&(retOp->operands), funcOp);
+        retOp->operation = OPERATION_FUNCCALL_RET;
+        opPtrListAppend(&(funcOp->funcRets), retOp);
+    }
+    return funcOp;
 }
 
 
@@ -794,6 +811,19 @@ struct operand* tryParseOperand(struct parserContext* pc, struct varList* localV
 }
 
 
+struct operand* tryParseExprFuncCall(struct parserContext* pc, struct varList* localVars) {
+    struct variable v;
+    if (!tryParseVar(pc, &v)) return NULL;
+    if (v.type.bType != BASETYPE_FUNC) return NULL; //TODO unparse
+    struct operand* funcOp = parseFuncCall(pc, v, localVars);
+    if (funcOp->funcRets.len != 1) {
+        SyntaxErrorInvalidToken(v.tok, "functions embedded in expressions must return exactly one value");
+        return NULL;
+    }
+    return funcOp->funcRets.ptr[0];
+}
+
+
 struct operand* tryParseExprOperand(struct parserContext* pc, struct varList* localVars) {
     bool unary = false;
     struct token unaryTok;
@@ -802,6 +832,7 @@ struct operand* tryParseExprOperand(struct parserContext* pc, struct varList* lo
 
     if (tryParseUnaryTok(pc, &unaryTok)) unary = true;
     if ((op = tryParseOperand(pc, localVars)));
+    else if ((op = tryParseExprFuncCall(pc, localVars)));
     else if ((op = tryParseTypeCastOperand(pc, localVars)));
     else if (tryParseToken(pc, &parenTok, TOKEN_PAREN_OPEN)) {
         op = tryParseExpr(pc, localVars);
@@ -980,10 +1011,20 @@ void evalBinary(struct operand* op) {
             break;
 
         case OPERATION_LOGICAL_EQUALS:
-            //TODO
+            if (isInt(opA->type)) op->intVal = getAsInt(opA) == getAsInt(opB);
+            else if (isFloat(opA->type)) op->floatVal = getAsFloat(opA) == getAsFloat(opB);
+            else if (opA->type.bType == BASETYPE_VOCAB) op->intVal = opA->intVal == opB->intVal;
+            else if (opA->type.bType == BASETYPE_STRUCT) op->intVal = opA->addrId == opB->addrId;
+            else if (opA->type.bType == BASETYPE_ARRAY) op->intVal = opA->addrId == opB->addrId;
+            else if (opA->type.bType == BASETYPE_FUNC) op->intVal = opA->addrId == opB->addrId;
             break;
         case OPERATION_LOGICAL_NOT_EQUALS:
-            //TODO
+            if (isInt(opA->type)) op->intVal = getAsInt(opA) == getAsInt(opB);
+            else if (isFloat(opA->type)) op->floatVal = getAsFloat(opA) == getAsFloat(opB);
+            else if (opA->type.bType == BASETYPE_VOCAB) op->intVal = opA->intVal == opB->intVal;
+            else if (opA->type.bType == BASETYPE_STRUCT) op->intVal = opA->addrId == opB->addrId;
+            else if (opA->type.bType == BASETYPE_ARRAY) op->intVal = opA->addrId == opB->addrId;
+            else if (opA->type.bType == BASETYPE_FUNC) op->intVal = opA->addrId == opB->addrId;
             break;
 
         case OPERATION_LOGICAL_AND:
@@ -1247,7 +1288,10 @@ struct variable varNew(struct token nameTok, struct type t) {
     v.name = nameTok.str;
     v.tok = nameTok;
     v.type = t;
-    v.value = NULL;
+    v.value = operandEmpty();
+    v.value->type = t;
+    v.value->operation = OPERATION_NOOP;
+    v.value->addrId = addrIdNew();
     return v;
 }
 

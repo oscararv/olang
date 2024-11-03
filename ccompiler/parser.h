@@ -26,9 +26,10 @@ enum baseType {
 
 enum operationType {
     //no token symbol
-    OPERATION_NOOP,
+    OPERATION_NOOP = 0,
     OPERATION_TYPECAST,
     OPERATION_FUNCCALL,
+    OPERATION_FUNCCALL_RET,
 
     //unary
     OPERATION_LOGICAL_NOT,
@@ -147,6 +148,8 @@ struct operand {
     long long intVal; //also used for vocabularies bits and bools
     double floatVal;
     struct str arrVal; //also used for structs
+    struct opPtrList funcRets; //used for function return values
+    int addrId; //used for coparing structs array and functions
 };
 
 
